@@ -24,11 +24,8 @@
 
 struct jtdev_func;
 struct jtdev {
-	int		         port;
-	uint8_t		         data_register;
-	uint8_t		         control_register;
-	int                      status;
 	const struct jtdev_func *f;
+	int status;
 };
 
 struct jtdev_func {
