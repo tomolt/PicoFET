@@ -36,8 +36,10 @@
 
 #include <stdint.h>
 
-#include "jtdev.h"
 #include "util.h"
+
+/* Declared in jtdev.h */
+struct jtdev;
 
 /* Flash erasing modes */
 #define JTAG_ERASE_MASS 0xA506

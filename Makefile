@@ -30,4 +30,4 @@ FETA_pico.elf: $(OBJECTS)
 
 src/cmd.o: src/status.h src/jtaglib.h src/jtdev.h src/util.h
 src/feta.o: src/util.h
-src/jtaglib.o: src/jtaglib.h src/jtdev.h src/util.h src/eem_defs.h
+src/jtaglib.o: src/jtaglib.h src/jtdev.h src/util.h src/eem_defs.h src/status.h

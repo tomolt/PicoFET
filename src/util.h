@@ -40,7 +40,4 @@ int delay_s(unsigned int s);
 int delay_ms(unsigned int s);
 #endif
 
-int printc_err(const char *fmt, ...)
-	__attribute__((format (printf, 1, 2)));
-
 #endif

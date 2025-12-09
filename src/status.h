@@ -2,8 +2,13 @@
 #define STATUS_H_
 
 #define STATUS_OK                200
+#define STATUS_TIMED_OUT         400
 #define STATUS_UNKNOWN_COMMAND   500
 #define STATUS_INVALID_ARGUMENTS 501
 #define STATUS_INTEGER_OVERFLOW  502
+#define STATUS_FUSE_BLOWN        550
+#define STATUS_INVALID_JTAG_ID   551
+#define STATUS_PUC_FAILED        552
+#define STATUS_TOO_MANY_BREAKS   553
 
 #endif

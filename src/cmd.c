@@ -1,12 +1,11 @@
-#include <stdbool.h>
-#include <string.h>
-#include <limits.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 
 #include "status.h"
 #include "jtaglib.h"
+#include "jtdev.h"
 
 #define MAX_ARGS 8
 

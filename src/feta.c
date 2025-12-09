@@ -1,10 +1,8 @@
-#include <stdbool.h>
-#include <string.h>
-#include "util.h"
+#include "feta.h"
 
-int printc_err(const char *fmt, ...) {
-	(void)fmt;
-	return 0;
+void feta_init(struct transport *t, struct jtdev *p) {
+	(void)t;
+	(void)p;
 }
 
 int main() {

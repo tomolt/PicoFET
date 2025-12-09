@@ -34,9 +34,12 @@
  *              jtag_write_reg   corrected
  */
 
-#include <stdlib.h>
+#include <stddef.h>
+
 #include "jtaglib.h"
+#include "jtdev.h"
 #include "eem_defs.h"
+#include "status.h"
 
 /* JTAG identification value for all existing Flash-based MSP430 devices
  */
@@ -114,7 +117,7 @@ static void jtag_default_reset_tap(struct jtdev *p)
 		jtag_tck_clr(p);
 		jtag_tck_set(p);
 
-		if (p->failed)
+		if (p->status != STATUS_OK)
 			return;
 	}
 
@@ -320,8 +323,7 @@ static int jtag_set_instruction_fetch(struct jtdev *p)
 		jtag_tclk_set(p); /* problems at MEM_QUICK_READ, it's from SLAU265 */
 	}
 
-	printc_err("jtag_set_instruction_fetch: failed\n");
-	p->failed = 1;
+	p->status = STATUS_TIMED_OUT;
 
 	return 0;
 }
@@ -447,23 +449,20 @@ unsigned int jtag_init(struct jtdev *p)
 
 	/* Check fuse */
 	if (jtag_is_fuse_blown(p)) {
-		printc_err("jtag_init: fuse is blown\n");
-		p->failed = 1;
+		p->status = STATUS_FUSE_BLOWN;
 		return 0;
 	}
 
 	/* Set device into JTAG mode */
 	jtag_id = jtag_get_device(p);
 	if (jtag_id == 0) {
-		printc_err("jtag_init: invalid jtag_id: 0x%02x\n", jtag_id);
-		p->failed = 1;
+		p->status = STATUS_INVALID_JTAG_ID;
 		return 0;
 	}
 
 	/* Perform PUC, includes target watchdog disable */
 	if (jtag_execute_puc(p) != jtag_id) {
-		printc_err("jtag_init: PUC failed\n");
-		p->failed = 1;
+		p->status = STATUS_PUC_FAILED;
 		return 0;
 	}
 
@@ -490,9 +489,8 @@ unsigned int jtag_get_device(struct jtdev *p)
 	}
 
 	if (loop_counter == 0) {
-		printc_err("jtag_get_device: timed out\n");
-		p->failed = 1;
 		/* timeout reached */
+		p->status = STATUS_TIMED_OUT;
 		return 0;
 	}
 
@@ -844,7 +842,7 @@ void jtag_write_flash(struct jtdev *p,
 		p->f->jtdev_tclk_strobe(p, 35);
 		address += 2;
 
-		if (p->failed)
+		if (p->status != STATUS_OK)
 			break;
 	}
 
@@ -1087,8 +1085,7 @@ void jtag_single_step( struct jtdev *p )
 
 	if (loop_counter == 0) {
 		/* timeout reached */
-		printc_err("pif: single step failed\n");
-		p->failed = 1;
+		p->status = STATUS_TIMED_OUT;
 	}
 }
 
@@ -1106,9 +1103,7 @@ unsigned int jtag_set_breakpoint( struct jtdev *p,int bp_num, address_t bp_addr 
 
 	if (bp_num >= 8) {
 		/* there are no more than 8 breakpoints in EEM */
-		printc_err("jtag_set_breakpoint: failed setting "
-			   "breakpoint %d at %04lx\n", bp_num, bp_addr);
-		p->failed = 1;
+		p->status = STATUS_TOO_MANY_BREAKS;
 		return 0;
 	}
 
