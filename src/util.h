@@ -1,0 +1,46 @@
+/* MSPDebug - debugging tool for MSP430 MCUs
+ * Copyright (C) 2009, 2010 Daniel Beer
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+#ifndef UTIL_H_
+#define UTIL_H_
+
+#include <inttypes.h>
+
+#define ARRAY_LEN(a) (sizeof(a) / sizeof((a)[0]))
+
+#define LE_BYTE(b, x) ((int)((uint8_t *)(b))[x])
+#define LE_WORD(b, x) ((LE_BYTE(b, x + 1) << 8) | LE_BYTE(b, x))
+#define LE_LONG(b, x) ((LE_WORD(b, x + 2) << 16) | LE_WORD(b, x))
+
+/* This type fits an MSP430X register value */
+typedef uint32_t address_t;
+
+#define ADDRESS_NONE ((address_t)0xffffffff)
+#define PRIuADDR PRIu32
+#define PRIXADDR PRIX32
+
+#if 0
+/* Sleep for a number of seconds (_s) or milliseconds (_ms) */
+int delay_s(unsigned int s);
+int delay_ms(unsigned int s);
+#endif
+
+int printc_err(const char *fmt, ...)
+	__attribute__((format (printf, 1, 2)));
+
+#endif

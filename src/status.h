@@ -1,0 +1,9 @@
+#ifndef STATUS_H_
+#define STATUS_H_
+
+#define STATUS_OK                200
+#define STATUS_UNKNOWN_COMMAND   500
+#define STATUS_INVALID_ARGUMENTS 501
+#define STATUS_INTEGER_OVERFLOW  502
+
+#endif
