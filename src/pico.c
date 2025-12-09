@@ -1,5 +1,6 @@
 #include <pico.h>
 #include <pico/stdio.h>
+#include <pico/stdlib.h>
 #include <pico/stdio_usb.h>
 #include <pico/status_led.h>
 #include <hardware/gpio.h>
@@ -108,10 +109,13 @@ const struct jtdev_func pico_dev_func = {
 	.jtdev_init_dap     = jtag_default_init_dap,
 };
 
-int main() {
-	stdio_usb_init();
-	status_led_init();
+#include <stdio.h>
 
+int main() {
+	//stdio_usb_init();
+	stdio_init_all();
+	status_led_init();
+	
 	struct pico_dev dev = {
 		.jtdev = {
 			.f = &pico_dev_func,

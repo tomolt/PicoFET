@@ -132,7 +132,7 @@ void process_command(struct jtdev *p, char *line) {
 	char *tok, *saveptr, *end;
 
 	// Isolate the command name and find it in the command list
-	if (!(tok = strtok_r(line, " \t", &saveptr))) {
+	if (!(tok = strtok_r(line, " \t\n", &saveptr))) {
 		return;
 	}
 	const struct cmd_def *cmd = NULL;
@@ -150,7 +150,7 @@ void process_command(struct jtdev *p, char *line) {
 	// Parse command arguments
 	union arg_value args[MAX_ARGS];
 	unsigned argc = 0;
-	while ((tok = strtok_r(NULL, " \t", &saveptr))) {
+	while ((tok = strtok_r(NULL, " \t\n", &saveptr))) {
 		switch (cmd->signature[argc]) {
 		case TYPECODE_SYMBOL:
 			args[argc].symbol = tok;
