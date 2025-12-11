@@ -8,6 +8,8 @@
 #include "fetcore.h"
 #include "jtaglib.h"
 
+unsigned char fet_buffer[FET_BUFFER_CAPACITY];
+
 struct pico_dev {
 	struct jtdev jtdev; // must be the first member
 	int pin_tck;

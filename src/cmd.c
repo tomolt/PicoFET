@@ -6,17 +6,20 @@
 #include "status.h"
 #include "jtaglib.h"
 #include "jtdev.h"
+#include "fetcore.h"
 
 #define MAX_ARGS 8
 
 #define TYPECODE_SYMBOL ((int)'y')
-#define SIG_SYMBOL      "y"
+#define ARG_SYMBOL      "y"
 
 #define TYPECODE_UINT   ((int)'u')
-#define SIG_UINT        "u"
+#define ARG_UINT        "u"
 
 #define TYPECODE_SINT   ((int)'i')
-#define SIG_SINT        "i"
+#define ARG_SINT        "i"
+
+#define ARG_NONE     ""
 
 struct jtdev jtdev;
 
@@ -40,85 +43,154 @@ void send_address(address_t address) {
 	printf("0x%8" PRIXADDR "\n", address);
 }
 
-void cmd_upload(struct jtdev *p, union arg_value *args) {
+void cmd_buf_capacity(struct jtdev *p, union arg_value *args) {
+	(void)p;
 	(void)args;
+	send_status(STATUS_OK);
+	send_address(FET_BUFFER_CAPACITY);
 }
 
-void cmd_download(struct jtdev *p, union arg_value *args) {
-	(void)args;
+void cmd_buf_upload_bin(struct jtdev *p, union arg_value *args) {
+	(void)p;
+	
+	unsigned long offset = args[0].uint;
+	unsigned long nbytes = args[1].uint;
+	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
+		send_status(STATUS_OUT_OF_BOUNDS);
+		return;
+	}
+
+	send_status(STATUS_CONTINUE_TRANSFER);
+
+	size_t r = fread(fet_buffer + offset, 1, nbytes, stdin);
+	if (r == nbytes) {
+		send_status(STATUS_OK);
+	} else {
+		send_status(STATUS_TRANSFER_FAILED);
+	}
 }
 
-void cmd_read_mem(struct jtdev *p, union arg_value *args) {
-	jtag_read_mem_quick(&jtdev, args[0].uint, args[1].uint, NULL);
+void cmd_buf_download_bin(struct jtdev *p, union arg_value *args) {
+	(void)p;
+	
+	unsigned long offset = args[0].uint;
+	unsigned long nbytes = args[1].uint;
+	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
+		send_status(STATUS_OUT_OF_BOUNDS);
+		return;
+	}
+
+	send_status(STATUS_CONTINUE_TRANSFER);
+
+	size_t r = fwrite(fet_buffer + offset, 1, nbytes, stdin);
+	if (r == nbytes) {
+		send_status(STATUS_OK);
+	} else {
+		send_status(STATUS_TRANSFER_FAILED);
+	}
+}
+
+void cmd_ram_read(struct jtdev *p, union arg_value *args) {
+	unsigned long offset  = args[0].uint;
+	unsigned long address = args[1].uint;
+	unsigned long nbytes  = args[2].uint;
+	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
+		send_status(STATUS_OUT_OF_BOUNDS);
+		return;
+	}
+
+	jtag_read_mem_quick(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
 	send_status(STATUS_OK);
 }
 
-void cmd_write_mem(struct jtdev *p, union arg_value *args) {
-	jtag_write_mem_quick(&jtdev, args[0].uint, args[1].uint, NULL);
+void cmd_ram_write(struct jtdev *p, union arg_value *args) {
+	unsigned long offset  = args[0].uint;
+	unsigned long address = args[1].uint;
+	unsigned long nbytes  = args[2].uint;
+	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
+		send_status(STATUS_OUT_OF_BOUNDS);
+		return;
+	}
+
+	jtag_write_mem_quick(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
 	send_status(STATUS_OK);
 }
 
-void cmd_verify_mem(struct jtdev *p, union arg_value *args) {
-	(void)args;
+void cmd_ram_verify(struct jtdev *p, union arg_value *args) {
+	unsigned long offset  = args[0].uint;
+	unsigned long address = args[1].uint;
+	unsigned long nbytes  = args[2].uint;
+	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
+		send_status(STATUS_OUT_OF_BOUNDS);
+		return;
+	}
+
+	int ok = jtag_verify_mem(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	send_status(ok ? STATUS_OK : STATUS_CONTENT_MISMATCH);
 }
 
-void cmd_read_reg(struct jtdev *p, union arg_value *args) {
+void cmd_reg_read(struct jtdev *p, union arg_value *args) {
 	address_t value = jtag_read_reg(&jtdev, args[0].uint);
 	send_status(STATUS_OK);
 	send_address(value);
 }
 
-void cmd_write_reg(struct jtdev *p, union arg_value *args) {
+void cmd_reg_write(struct jtdev *p, union arg_value *args) {
 	jtag_write_reg(&jtdev, args[0].uint, args[1].uint);
 	send_status(STATUS_OK);
 }
 
-void cmd_list(struct jtdev *p, union arg_value *args);
+void cmd_info_commands(struct jtdev *p, union arg_value *args);
 
 const struct cmd_def cmd_defs[] = {
 	{
-		"list",
-		"",
-		cmd_list,
+		"INFO:COMMANDS",
+		ARG_NONE,
+		cmd_info_commands,
 	},
 	{
-		"upload",
-		SIG_SYMBOL,
-		cmd_upload,
+		"BUF:CAPACITY",
+		ARG_NONE,
+		cmd_buf_capacity,
 	},
 	{
-		"download",
-		SIG_SYMBOL,
-		cmd_download,
+		"BUF:UPLOAD_BIN",
+		ARG_UINT ARG_UINT,
+		cmd_buf_upload_bin,
 	},
 	{
-		"read_mem",
-		SIG_UINT SIG_UINT,
-		cmd_read_mem,
+		"BUF:DOWNLOAD_BIN",
+		ARG_UINT ARG_UINT,
+		cmd_buf_download_bin,
 	},
 	{
-		"write_mem",
-		SIG_UINT SIG_UINT,
-		cmd_write_mem,
+		"RAM:READ",
+		ARG_UINT ARG_UINT ARG_UINT,
+		cmd_ram_read,
 	},
 	{
-		"verify_mem",
-		SIG_SYMBOL SIG_UINT SIG_UINT,
-		cmd_verify_mem,
+		"RAM:WRITE",
+		ARG_UINT ARG_UINT ARG_UINT,
+		cmd_ram_write,
 	},
 	{
-		"read_reg",
-		SIG_UINT,
-		cmd_read_reg,
+		"RAM:VERIFY",
+		ARG_UINT ARG_UINT ARG_UINT,
+		cmd_ram_verify,
 	},
 	{
-		"write_reg",
-		SIG_UINT SIG_SINT,
-		cmd_write_reg,
+		"REG:READ",
+		ARG_UINT,
+		cmd_reg_read,
+	},
+	{
+		"REG:WRITE",
+		ARG_UINT ARG_SINT,
+		cmd_reg_write,
 	},
 };
 
-void cmd_list(struct jtdev *p, union arg_value *args) {
+void cmd_info_commands(struct jtdev *p, union arg_value *args) {
 	(void)p;
 	(void)args;
 	send_status(STATUS_OK);
@@ -137,7 +209,7 @@ void process_command(struct jtdev *p, char *line) {
 	}
 	const struct cmd_def *cmd = NULL;
 	for (unsigned i = 0; i < ARRAY_LEN(cmd_defs); i++) {
-		if (strcmp(cmd_defs[i].name, tok) == 0) {
+		if (strcasecmp(cmd_defs[i].name, tok) == 0) {
 			cmd = &cmd_defs[i];
 			break;
 		}
