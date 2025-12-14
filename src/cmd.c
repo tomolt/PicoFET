@@ -32,115 +32,114 @@ union arg_value {
 struct cmd_def {
 	const char *name;
 	const char *signature;
-	void      (*func)(struct jtdev *p, union arg_value *args);
+	void      (*func)(struct jtdev *p, struct transport *t, union arg_value *args);
 };
 
-void send_status(int status) {
-	printf("%3d\n", status);
+void send_status(struct transport *t, int status) {
+	char msg[6];
+	sprintf(msg, "%03d\r\n", status);
+	t->f->write(t, msg, 5);
 }
 
-void send_address(address_t address) {
-	printf("0x%8" PRIXADDR "\n", address);
+void send_address(struct transport *t, address_t address) {
+	char msg[13];
+	sprintf(msg, "0x%08" PRIXADDR "\r\n", address);
+	t->f->write(t, msg, 12);
 }
 
-void cmd_buf_capacity(struct jtdev *p, union arg_value *args) {
+void cmd_buf_capacity(struct jtdev *p, struct transport *t, union arg_value *args) {
 	(void)p;
 	(void)args;
-	send_status(STATUS_OK);
-	send_address(FET_BUFFER_CAPACITY);
+	send_status(t, STATUS_OK);
+	send_address(t, FET_BUFFER_CAPACITY);
 }
 
-void cmd_buf_upload_bin(struct jtdev *p, union arg_value *args) {
+void cmd_buf_upload_bin(struct jtdev *p, struct transport *t, union arg_value *args) {
 	(void)p;
 	
 	unsigned long offset = args[0].uint;
 	unsigned long nbytes = args[1].uint;
 	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
-		send_status(STATUS_OUT_OF_BOUNDS);
+		send_status(t, STATUS_OUT_OF_BOUNDS);
 		return;
 	}
 
-	send_status(STATUS_CONTINUE_TRANSFER);
+	send_status(t, STATUS_CONTINUE_TRANSFER);
 
-	size_t r = fread(fet_buffer + offset, 1, nbytes, stdin);
-	if (r == nbytes) {
-		send_status(STATUS_OK);
-	} else {
-		send_status(STATUS_TRANSFER_FAILED);
+	unsigned received = 0;
+	while (received < nbytes) {
+		received += t->f->read_nb(t, fet_buffer + offset + received, nbytes - received);
 	}
+	send_status(t, STATUS_OK);
 }
 
-void cmd_buf_download_bin(struct jtdev *p, union arg_value *args) {
+void cmd_buf_download_bin(struct jtdev *p, struct transport *t, union arg_value *args) {
 	(void)p;
 	
 	unsigned long offset = args[0].uint;
 	unsigned long nbytes = args[1].uint;
 	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
-		send_status(STATUS_OUT_OF_BOUNDS);
+		send_status(t, STATUS_OUT_OF_BOUNDS);
 		return;
 	}
 
-	send_status(STATUS_CONTINUE_TRANSFER);
+	send_status(t, STATUS_CONTINUE_TRANSFER);
 
-	size_t r = fwrite(fet_buffer + offset, 1, nbytes, stdin);
-	if (r == nbytes) {
-		send_status(STATUS_OK);
-	} else {
-		send_status(STATUS_TRANSFER_FAILED);
-	}
+	t->f->write(t, fet_buffer + offset, nbytes);
+	send_status(t, STATUS_OK);
 }
 
-void cmd_ram_read(struct jtdev *p, union arg_value *args) {
+void cmd_ram_read(struct jtdev *p, struct transport *t, union arg_value *args) {
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
 	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
-		send_status(STATUS_OUT_OF_BOUNDS);
+		send_status(t, STATUS_OUT_OF_BOUNDS);
 		return;
 	}
 
 	jtag_read_mem_quick(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
-	send_status(STATUS_OK);
+	send_status(t, STATUS_OK);
 }
 
-void cmd_ram_write(struct jtdev *p, union arg_value *args) {
+void cmd_ram_write(struct jtdev *p, struct transport *t, union arg_value *args) {
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
 	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
-		send_status(STATUS_OUT_OF_BOUNDS);
+		send_status(t, STATUS_OUT_OF_BOUNDS);
 		return;
 	}
 
 	jtag_write_mem_quick(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
-	send_status(STATUS_OK);
+	send_status(t, STATUS_OK);
 }
 
-void cmd_ram_verify(struct jtdev *p, union arg_value *args) {
+void cmd_ram_verify(struct jtdev *p, struct transport *t, union arg_value *args) {
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
 	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
-		send_status(STATUS_OUT_OF_BOUNDS);
+		send_status(t, STATUS_OUT_OF_BOUNDS);
 		return;
 	}
 
 	int ok = jtag_verify_mem(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
-	send_status(ok ? STATUS_OK : STATUS_CONTENT_MISMATCH);
+	send_status(t, ok ? STATUS_OK : STATUS_CONTENT_MISMATCH);
 }
 
-void cmd_reg_read(struct jtdev *p, union arg_value *args) {
+void cmd_reg_read(struct jtdev *p, struct transport *t, union arg_value *args) {
 	address_t value = jtag_read_reg(&jtdev, args[0].uint);
-	send_status(STATUS_OK);
-	send_address(value);
+	send_status(t, STATUS_OK);
+	send_address(t, value);
 }
 
-void cmd_reg_write(struct jtdev *p, union arg_value *args) {
+void cmd_reg_write(struct jtdev *p, struct transport *t, union arg_value *args) {
 	jtag_write_reg(&jtdev, args[0].uint, args[1].uint);
-	send_status(STATUS_OK);
+	send_status(t, STATUS_OK);
 }
 
-void cmd_info_commands(struct jtdev *p, union arg_value *args);
+void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *args);
 
 const struct cmd_def cmd_defs[] = {
 	{
@@ -190,17 +189,20 @@ const struct cmd_def cmd_defs[] = {
 	},
 };
 
-void cmd_info_commands(struct jtdev *p, union arg_value *args) {
+void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *args) {
 	(void)p;
 	(void)args;
-	send_status(STATUS_OK);
+	send_status(t, STATUS_OK);
+	// TODO reímplement
+#if 0
 	for (unsigned i = 0; i < ARRAY_LEN(cmd_defs); i++) {
 		printf("%s\n", cmd_defs[i].name);
 	}
 	printf(".\n");
+#endif
 }
 
-void process_command(struct jtdev *p, char *line) {
+void process_command(struct jtdev *p, struct transport *t, char *line) {
 	char *tok, *saveptr, *end;
 
 	// Isolate the command name and find it in the command list
@@ -215,7 +217,7 @@ void process_command(struct jtdev *p, char *line) {
 		}
 	}
 	if (!cmd) {
-		send_status(STATUS_UNKNOWN_COMMAND);
+		send_status(t, STATUS_UNKNOWN_COMMAND);
 		return;
 	}
 
@@ -232,11 +234,11 @@ void process_command(struct jtdev *p, char *line) {
 			errno = 0;
 			args[argc].uint = strtoul(tok, &end, 0);
 			if (*end != '\0') {
-				send_status(STATUS_INVALID_ARGUMENTS);
+				send_status(t, STATUS_INVALID_ARGUMENTS);
 				return;
 			}
 			if (errno) {
-				send_status(STATUS_INTEGER_OVERFLOW);
+				send_status(t, STATUS_INTEGER_OVERFLOW);
 				return;
 			}
 			break;
@@ -245,43 +247,26 @@ void process_command(struct jtdev *p, char *line) {
 			errno = 0;
 			args[argc].sint = strtol(tok, &end, 0);
 			if (*end != '\0') {
-				send_status(STATUS_INVALID_ARGUMENTS);
+				send_status(t, STATUS_INVALID_ARGUMENTS);
 				return;
 			}
 			if (errno) {
-				send_status(STATUS_INTEGER_OVERFLOW);
+				send_status(t, STATUS_INTEGER_OVERFLOW);
 				return;
 			}
 			break;
 
 		default:
-			send_status(STATUS_INVALID_ARGUMENTS);
+			send_status(t, STATUS_INVALID_ARGUMENTS);
 			return;
 		}
 
 		argc++;
 	}
 	if (cmd->signature[argc]) {
-		send_status(STATUS_INVALID_ARGUMENTS);
+		send_status(t, STATUS_INVALID_ARGUMENTS);
 		return;
 	}
 
-	cmd->func(p, args);
-}
-
-void command_loop(struct jtdev *p) {
-	static char buf[1024];
-	for (;;) {
-		fgets(buf, sizeof buf, stdin);
-		size_t len = strlen(buf);
-		if (len == 0 || buf[len-1] != '\n') {
-			// discard any further input until we have reached a new line
-			// TODO work around EOF
-			while (fgetc(stdin) != '\n') {}
-			send_status(STATUS_COMMAND_TOO_LONG);
-			continue;
-		}
-
-		process_command(p, buf);
-	}
+	cmd->func(p, t, args);
 }

@@ -1,9 +1,9 @@
 #include <pico.h>
-#include <pico/stdio.h>
-#include <pico/stdlib.h>
-#include <pico/stdio_usb.h>
+//#include <pico/stdlib.h>
 #include <pico/status_led.h>
+#include <hardware/watchdog.h>
 #include <hardware/gpio.h>
+#include <tusb.h>
 
 #include "fetcore.h"
 #include "jtaglib.h"
@@ -61,26 +61,22 @@ void pico_dev_tclk_strobe(struct jtdev *p, unsigned int count) {
 	}
 }
 
-void pico_dev_led_green(struct jtdev *p, int out) {
+void pico_dev_led_green(__unused struct jtdev *p, int out) {
 	status_led_set_state(out);
 }
 
-void pico_dev_led_red(struct jtdev *p, int out) {
-	(void)p;
-	(void)out;
+void pico_dev_led_red(__unused struct jtdev *p, __unused int out) {
 }
 
-int pico_dev_open(struct jtdev *p, const char *device) {
-	(void)p;
-	(void)device;
+int pico_dev_open(__unused struct jtdev *p, __unused const char *device) {
 	return 0;
 }
 
-void pico_dev_close    (struct jtdev *p) { (void)p; }
-void pico_dev_power_on (struct jtdev *p) { (void)p; }
-void pico_dev_power_off(struct jtdev *p) { (void)p; }
-void pico_dev_connect  (struct jtdev *p) { (void)p; }
-void pico_dev_release  (struct jtdev *p) { (void)p; }
+void pico_dev_close    (__unused struct jtdev *p) {}
+void pico_dev_power_on (__unused struct jtdev *p) {}
+void pico_dev_power_off(__unused struct jtdev *p) {}
+void pico_dev_connect  (__unused struct jtdev *p) {}
+void pico_dev_release  (__unused struct jtdev *p) {}
 
 const struct jtdev_func pico_dev_func = {
 	.jtdev_open      = pico_dev_open,
@@ -111,12 +107,62 @@ const struct jtdev_func pico_dev_func = {
 	.jtdev_init_dap     = jtag_default_init_dap,
 };
 
-#include <stdio.h>
+size_t tusb_transport_read_nb(__unused struct transport *t, void *buf, size_t max) {
+	watchdog_update();
+	tud_task();
+	return tud_cdc_read(buf, max);
+}
+
+void tusb_transport_write(__unused struct transport *t, const void *buf, size_t max) {
+	while (max) {
+		watchdog_update();
+
+		unsigned avail = tud_cdc_write_available();
+		if (!avail) {
+			sleep_ms(10);
+			continue;
+		}
+
+		unsigned step = max < avail ? max : avail;
+		tud_cdc_write(buf, step);
+		tud_task();
+		tud_cdc_write_flush();
+
+		buf  = (const char *)buf + step;
+		max -= step;
+	}
+}
+
+void tusb_transport_flush_out(__unused struct transport *t) {
+	do {
+		tud_task();
+	} while (tud_cdc_write_flush());
+}
+
+struct transport_func tusb_transport_func = {
+	.read_nb   = tusb_transport_read_nb,
+	.write     = tusb_transport_write,
+	.flush_out = tusb_transport_flush_out,
+};
 
 int main() {
-	//stdio_usb_init();
-	stdio_init_all();
+	//stdio_init_all();
 	status_led_init();
+
+	tusb_init();
+	while (!tud_cdc_connected()) {
+		tud_task();
+		sleep_ms(10);
+	}
+	sleep_ms(10);
+
+#if 0
+	watchdog_enable(5000, true);
+
+	gpio_init(0);
+	gpio_set_dir(0, GPIO_OUT);
+	gpio_init(1);
+	gpio_set_dir(1, GPIO_IN);
 	
 	struct pico_dev dev = {
 		.jtdev = {
@@ -126,14 +172,66 @@ int main() {
 		.pin_tck = 0,
 		.pin_tms = 0,
 		.pin_tdi = 0,
-		.pin_tdo = 0,
+		.pin_tdo = 1,
 		.pin_rst = 0,
 		.pin_tst = 0,
 		.pin_tclk = 0,
 	};
+#endif
+
+	struct transport tran = {
+		.f = &tusb_transport_func,
+	};
 
 	for (;;) {
-		command_loop(&dev.jtdev);
+		tud_task();
+		const char *msg = "hello\r\n";
+		tran.f->write(&tran, msg, 7);
+		tran.f->flush_out(&tran);
+		sleep_ms(500);
 	}
+
+#if 0
+	for (;;) {
+		tud_task();
+		char c;
+		size_t got = tran.f->read_nb(&tran, &c, 1);
+		if (got) {
+			tran.f->write(&tran, &c, 1);
+		} else {
+			sleep_ms(10);
+		}
+	}
+#endif
+
+#if 0
+	static char line[1024];
+	size_t buffered = 0;
+	for (;;) {
+		char *lf, c;
+
+		watchdog_update();
+		tud_task();
+
+		buffered += tran.f->read_nb(&tran, line, sizeof line - buffered);
+		while ((lf = memchr(line, '\n', buffered))) {
+			watchdog_update();
+			process_command(&dev.jtdev, &tran, line);
+			tran.f->flush_out(&tran);
+			buffered -= lf + 1 - line;
+			memmove(line, lf, buffered);
+		}
+
+		if (buffered == sizeof line) {
+			// discard any further input until we have reached a new line
+			do {
+				tran.f->read_nb(&tran, &c, 1);
+			} while (c != '\n');
+			buffered = 0;
+			send_status(&tran, STATUS_COMMAND_TOO_LONG);
+		}
+	}
+#endif
+
 	return 0;
 }

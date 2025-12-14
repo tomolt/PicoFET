@@ -3,11 +3,13 @@
 
 #include "status.h"
 #include "jtdev.h"
+#include "transport.h"
 
 #define FET_BUFFER_CAPACITY (256 * 1024)
 
 extern unsigned char fet_buffer[FET_BUFFER_CAPACITY];
 
-void command_loop(struct jtdev *p);
+void process_command(struct jtdev *p, struct transport *t, char *line);
+void send_status(struct transport *t, int status);
 
 #endif
