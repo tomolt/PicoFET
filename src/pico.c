@@ -1,5 +1,4 @@
 #include <pico.h>
-//#include <pico/stdlib.h>
 #include <pico/status_led.h>
 #include <hardware/watchdog.h>
 #include <hardware/gpio.h>
@@ -7,6 +6,8 @@
 
 #include "fetcore.h"
 #include "jtaglib.h"
+
+#define MAX_COMMAND_LENGTH 256
 
 unsigned char fet_buffer[FET_BUFFER_CAPACITY];
 
@@ -110,7 +111,11 @@ const struct jtdev_func pico_dev_func = {
 size_t tusb_transport_read_nb(__unused struct transport *t, void *buf, size_t max) {
 	watchdog_update();
 	tud_task();
-	return tud_cdc_read(buf, max);
+	if (tud_cdc_connected() && tud_cdc_available()) {
+		return tud_cdc_read(buf, max);
+	} else {
+		return 0;
+	}
 }
 
 void tusb_transport_write(__unused struct transport *t, const void *buf, size_t max) {
@@ -145,8 +150,9 @@ struct transport_func tusb_transport_func = {
 	.flush_out = tusb_transport_flush_out,
 };
 
+static char line[MAX_COMMAND_LENGTH];
+
 int main() {
-	//stdio_init_all();
 	status_led_init();
 
 	tusb_init();
@@ -156,14 +162,6 @@ int main() {
 	}
 	sleep_ms(10);
 
-#if 0
-	watchdog_enable(5000, true);
-
-	gpio_init(0);
-	gpio_set_dir(0, GPIO_OUT);
-	gpio_init(1);
-	gpio_set_dir(1, GPIO_IN);
-	
 	struct pico_dev dev = {
 		.jtdev = {
 			.f = &pico_dev_func,
@@ -177,44 +175,35 @@ int main() {
 		.pin_tst = 0,
 		.pin_tclk = 0,
 	};
-#endif
 
 	struct transport tran = {
 		.f = &tusb_transport_func,
 	};
 
-	for (;;) {
-		tud_task();
-		const char *msg = "hello\r\n";
-		tran.f->write(&tran, msg, 7);
-		tran.f->flush_out(&tran);
-		sleep_ms(500);
+	if (watchdog_caused_reboot()) {
+		send_status(&tran, STATUS_PROGRAMMER_FROZE);
 	}
 
-#if 0
-	for (;;) {
-		tud_task();
-		char c;
-		size_t got = tran.f->read_nb(&tran, &c, 1);
-		if (got) {
-			tran.f->write(&tran, &c, 1);
-		} else {
-			sleep_ms(10);
-		}
-	}
-#endif
+	// Even though the SDK documentation says that the watchdog timeout
+	// is in milliseconds, it really seems to be in microseconds.
+	watchdog_enable(5 * 1000 * 1000, true);
 
-#if 0
-	static char line[1024];
+	gpio_init(0);
+	gpio_set_dir(0, GPIO_OUT);
+	gpio_init(1);
+	gpio_set_dir(1, GPIO_IN);
+	
 	size_t buffered = 0;
 	for (;;) {
 		char *lf, c;
 
-		watchdog_update();
 		tud_task();
 
-		buffered += tran.f->read_nb(&tran, line, sizeof line - buffered);
+		buffered += tran.f->read_nb(&tran, line + buffered, sizeof line - buffered);
+
 		while ((lf = memchr(line, '\n', buffered))) {
+			*lf = '\0';
+
 			watchdog_update();
 			process_command(&dev.jtdev, &tran, line);
 			tran.f->flush_out(&tran);
@@ -231,7 +220,6 @@ int main() {
 			send_status(&tran, STATUS_COMMAND_TOO_LONG);
 		}
 	}
-#endif
 
 	return 0;
 }

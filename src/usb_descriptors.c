@@ -4,6 +4,7 @@
  *
  * The MIT License (MIT)
  *
+ * Copyright (c) 2025 Thomas Oltmann
  * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
  * Copyright (c) 2019 Damien P. George
  *
@@ -26,13 +27,11 @@
  * THE SOFTWARE.
  */
 
-//#include "pico/stdio_usb.h"
-//#include "pico/stdio_usb/reset_interface.h"
 #include <pico/unique_id.h>
 #include <tusb.h>
 
-#define PICO_FET_USB_USE_DEFAULT_DESCRIPTORS 1
-#if PICO_FET_USB_USE_DEFAULT_DESCRIPTORS
+#define PFET_USB_USE_DEFAULT_DESCRIPTORS 1
+#if PFET_USB_USE_DEFAULT_DESCRIPTORS
 
 #ifndef USBD_VID
 #define USBD_VID (0x2E8A) // Raspberry Pi
@@ -47,20 +46,20 @@
 #endif
 
 #ifndef USBD_MANUFACTURER
-#define USBD_MANUFACTURER "Raspberry Pi"
+#define USBD_MANUFACTURER "tomolt" // that's me, Thomas Oltmann
 #endif
 
 #ifndef USBD_PRODUCT
-#define USBD_PRODUCT "Pico"
+#define USBD_PRODUCT "PicoFET Debug Probe"
 #endif
 
 #define TUD_RPI_RESET_DESC_LEN  9
-#if !PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
+#if !PFET_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
 #define USBD_DESC_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN)
 #else
 #define USBD_DESC_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_RPI_RESET_DESC_LEN)
 #endif
-#if !PICO_STDIO_USB_DEVICE_SELF_POWERED
+#if !PFET_USB_DEVICE_SELF_POWERED
 #define USBD_CONFIGURATION_DESCRIPTOR_ATTRIBUTE (0)
 #define USBD_MAX_POWER_MA (250)
 #else
@@ -69,7 +68,7 @@
 #endif
 
 #define USBD_ITF_CDC       (0) // needs 2 interfaces
-#if !PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
+#if !PFET_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
 #define USBD_ITF_MAX       (2)
 #else
 #define USBD_ITF_RPI_RESET (2)
@@ -98,7 +97,7 @@ static const tusb_desc_device_t usbd_desc_device = {
 // This is only needed for driverless access to the reset interface - the CDC interface doesn't require these descriptors
 // for driverless access, but will still not work if bcdUSB = 0x210 and no descriptor is provided. Therefore always
 // use bcdUSB = 0x200 if the Microsoft OS 2.0 descriptor isn't enabled
-#if PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE && PICO_STDIO_USB_RESET_INTERFACE_SUPPORT_MS_OS_20_DESCRIPTOR
+#if PFET_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE && PFET_USB_RESET_INTERFACE_SUPPORT_MS_OS_20_DESCRIPTOR
     .bcdUSB = 0x0210,
 #else
     .bcdUSB = 0x0200,
@@ -127,7 +126,7 @@ static const uint8_t usbd_desc_cfg[USBD_DESC_LEN] = {
     TUD_CDC_DESCRIPTOR(USBD_ITF_CDC, USBD_STR_CDC, USBD_CDC_EP_CMD,
         USBD_CDC_CMD_MAX_SIZE, USBD_CDC_EP_OUT, USBD_CDC_EP_IN, USBD_CDC_IN_OUT_MAX_SIZE),
 
-#if PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
+#if PFET_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
     TUD_RPI_RESET_DESCRIPTOR(USBD_ITF_RPI_RESET, USBD_STR_RPI_RESET)
 #endif
 };
@@ -139,7 +138,7 @@ static const char *const usbd_desc_str[] = {
     [USBD_STR_PRODUCT] = USBD_PRODUCT,
     [USBD_STR_SERIAL] = usbd_serial_str,
     [USBD_STR_CDC] = "Board CDC",
-#if PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
+#if PFET_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE
     [USBD_STR_RPI_RESET] = "Reset",
 #endif
 };

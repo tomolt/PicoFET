@@ -19,9 +19,7 @@
 #define TYPECODE_SINT   ((int)'i')
 #define ARG_SINT        "i"
 
-#define ARG_NONE     ""
-
-struct jtdev jtdev;
+#define ARG_NONE        ""
 
 union arg_value {
 	char         *symbol;
@@ -65,12 +63,15 @@ void cmd_buf_upload_bin(struct jtdev *p, struct transport *t, union arg_value *a
 	}
 
 	send_status(t, STATUS_CONTINUE_TRANSFER);
+	p->f->jtdev_led_green(p, 1);
 
 	unsigned received = 0;
 	while (received < nbytes) {
 		received += t->f->read_nb(t, fet_buffer + offset + received, nbytes - received);
 	}
+
 	send_status(t, STATUS_OK);
+	p->f->jtdev_led_green(p, 0);
 }
 
 void cmd_buf_download_bin(struct jtdev *p, struct transport *t, union arg_value *args) {
@@ -84,9 +85,12 @@ void cmd_buf_download_bin(struct jtdev *p, struct transport *t, union arg_value 
 	}
 
 	send_status(t, STATUS_CONTINUE_TRANSFER);
+	p->f->jtdev_led_green(p, 1);
 
 	t->f->write(t, fet_buffer + offset, nbytes);
+
 	send_status(t, STATUS_OK);
+	p->f->jtdev_led_green(p, 0);
 }
 
 void cmd_ram_read(struct jtdev *p, struct transport *t, union arg_value *args) {
@@ -98,8 +102,8 @@ void cmd_ram_read(struct jtdev *p, struct transport *t, union arg_value *args) {
 		return;
 	}
 
-	jtag_read_mem_quick(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
-	send_status(t, STATUS_OK);
+	jtag_read_mem_quick(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	send_status(t, p->status);
 }
 
 void cmd_ram_write(struct jtdev *p, struct transport *t, union arg_value *args) {
@@ -111,8 +115,8 @@ void cmd_ram_write(struct jtdev *p, struct transport *t, union arg_value *args) 
 		return;
 	}
 
-	jtag_write_mem_quick(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
-	send_status(t, STATUS_OK);
+	jtag_write_mem_quick(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	send_status(t, p->status);
 }
 
 void cmd_ram_verify(struct jtdev *p, struct transport *t, union arg_value *args) {
@@ -124,19 +128,19 @@ void cmd_ram_verify(struct jtdev *p, struct transport *t, union arg_value *args)
 		return;
 	}
 
-	int ok = jtag_verify_mem(&jtdev, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
-	send_status(t, ok ? STATUS_OK : STATUS_CONTENT_MISMATCH);
+	int ok = jtag_verify_mem(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	send_status(t, ok ? p->status : STATUS_CONTENT_MISMATCH);
 }
 
 void cmd_reg_read(struct jtdev *p, struct transport *t, union arg_value *args) {
-	address_t value = jtag_read_reg(&jtdev, args[0].uint);
-	send_status(t, STATUS_OK);
+	address_t value = jtag_read_reg(p, args[0].uint);
+	send_status(t, p->status);
 	send_address(t, value);
 }
 
 void cmd_reg_write(struct jtdev *p, struct transport *t, union arg_value *args) {
-	jtag_write_reg(&jtdev, args[0].uint, args[1].uint);
-	send_status(t, STATUS_OK);
+	jtag_write_reg(p, args[0].uint, args[1].uint);
+	send_status(t, p->status);
 }
 
 void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *args);
@@ -193,20 +197,20 @@ void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *ar
 	(void)p;
 	(void)args;
 	send_status(t, STATUS_OK);
-	// TODO reímplement
-#if 0
 	for (unsigned i = 0; i < ARRAY_LEN(cmd_defs); i++) {
-		printf("%s\n", cmd_defs[i].name);
+		t->f->write(t, cmd_defs[i].name, strlen(cmd_defs[i].name));
+		t->f->write(t, "\r\n", 2);
 	}
-	printf(".\n");
-#endif
+	t->f->write(t, ".\r\n", 3);
 }
 
 void process_command(struct jtdev *p, struct transport *t, char *line) {
+	const char *tok_separators = " \t\r\n";
+	
 	char *tok, *saveptr, *end;
 
 	// Isolate the command name and find it in the command list
-	if (!(tok = strtok_r(line, " \t\n", &saveptr))) {
+	if (!(tok = strtok_r(line, tok_separators, &saveptr))) {
 		return;
 	}
 	const struct cmd_def *cmd = NULL;
@@ -224,7 +228,7 @@ void process_command(struct jtdev *p, struct transport *t, char *line) {
 	// Parse command arguments
 	union arg_value args[MAX_ARGS];
 	unsigned argc = 0;
-	while ((tok = strtok_r(NULL, " \t\n", &saveptr))) {
+	while ((tok = strtok_r(NULL, tok_separators, &saveptr))) {
 		switch (cmd->signature[argc]) {
 		case TYPECODE_SYMBOL:
 			args[argc].symbol = tok;

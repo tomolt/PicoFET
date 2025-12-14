@@ -1,6 +1,7 @@
 /*
  * The MIT License (MIT)
  *
+ * Copyright (c) 2025 Thomas Oltmann
  * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
  * Copyright (c) 2020 Damien P. George
  *
@@ -24,10 +25,8 @@
  *
  */
 
-#ifndef PICO_FET_TUSB_CONFIG_H
-#define PICO_FET_TUSB_CONFIG_H
-
-//#include "pico/stdio_usb.h"
+#ifndef PFET_TUSB_CONFIG_H
+#define PFET_TUSB_CONFIG_H
 
 #if !defined(LIB_TINYUSB_HOST) && !defined(LIB_TINYUSB_DEVICE)
 #define CFG_TUSB_RHPORT0_MODE   (OPT_MODE_DEVICE)
@@ -36,20 +35,20 @@
 
 // CDC FIFO size of TX and RX
 #ifndef CFG_TUD_CDC_RX_BUFSIZE
-#define CFG_TUD_CDC_RX_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
+#define CFG_TUD_CDC_RX_BUFSIZE   (512)
 #endif
 #ifndef CFG_TUD_CDC_TX_BUFSIZE
-#define CFG_TUD_CDC_TX_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
+#define CFG_TUD_CDC_TX_BUFSIZE   (512)
 #endif
 
 // CDC Endpoint transfer buffer size, more is faster
 #ifndef CFG_TUD_CDC_EP_BUFSIZE
-#define CFG_TUD_CDC_EP_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
+#define CFG_TUD_CDC_EP_BUFSIZE   (512)
 #endif
 
 // We use a vendor specific interface but with our own driver
 // Vendor driver only used for Microsoft OS 2.0 descriptor
-#if !PICO_STDIO_USB_RESET_INTERFACE_SUPPORT_MS_OS_20_DESCRIPTOR
+#if !PFET_USB_RESET_INTERFACE_SUPPORT_MS_OS_20_DESCRIPTOR
 #define CFG_TUD_VENDOR            (0)
 #else
 #define CFG_TUD_VENDOR            (1)
