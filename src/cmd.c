@@ -45,6 +45,30 @@ void send_address(struct transport *t, address_t address) {
 	t->f->write(t, msg, 12);
 }
 
+void cmd_mcu_attach(struct jtdev *p, struct transport *t, union arg_value *arg) {
+	(void)args;
+	unsigned id = jtag_init(p);
+	send_status(t, p->status);
+	if (p->status == STATUS_OK) {
+		send_address(t, id);
+	}
+}
+
+void cmd_mcu_detach(struct jtdev *p, struct transport *t, union arg_value *arg) {
+	address_t pc = args[0].uint;
+	jtag_release_device(p, pc);
+	send_status(t, p->status);
+}
+
+void cmd_mcu_get_id(struct jtdev *p, struct transport *t, union arg_value *arg) {
+	(void)args;
+	unsigned id = jtag_chip_id(p);
+	send_status(t, p->status);
+	if (p->status == STATUS_OK) {
+		send_address(t, id);
+	}
+}
+
 void cmd_buf_capacity(struct jtdev *p, struct transport *t, union arg_value *args) {
 	(void)p;
 	(void)args;
@@ -152,6 +176,21 @@ const struct cmd_def cmd_defs[] = {
 		cmd_info_commands,
 	},
 	{
+		"MCU:ATTACH",
+		ARG_NONE,
+		cmd_mcu_attach,
+	},
+	{
+		"MCU:DETACH",
+		ARG_UINT,
+		cmd_mcu_detach,
+	},
+	{
+		"MCU:GET_ID",
+		ARG_NONE,
+		cmd_mcu_get_id,
+	},
+	{
 		"BUF:CAPACITY",
 		ARG_NONE,
 		cmd_buf_capacity,
@@ -180,6 +219,21 @@ const struct cmd_def cmd_defs[] = {
 		"RAM:VERIFY",
 		ARG_UINT ARG_UINT ARG_UINT,
 		cmd_ram_verify,
+	},
+	{
+		"RAM:VERIFY_ERASED",
+		ARG_UINT ARG_UINT,
+		cmd_ram_verify_erased,
+	},
+	{
+		"FLASH:WRITE",
+		ARG_UINT ARG_UINT ARG_UINT,
+		cmd_flash_write,
+	},
+	{
+		"FLASH:ERASE",
+		ARG_UINT ARG_UINT,
+		cmd_flash_erase,
 	},
 	{
 		"REG:READ",

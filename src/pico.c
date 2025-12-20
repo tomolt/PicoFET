@@ -208,7 +208,7 @@ int main() {
 			process_command(&dev.jtdev, &tran, line);
 			tran.f->flush_out(&tran);
 			buffered -= lf + 1 - line;
-			memmove(line, lf, buffered);
+			memmove(line, lf + 1, buffered);
 		}
 
 		if (buffered == sizeof line) {
