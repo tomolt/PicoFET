@@ -45,7 +45,7 @@ void send_address(struct transport *t, address_t address) {
 	t->f->write(t, msg, 12);
 }
 
-void cmd_mcu_attach(struct jtdev *p, struct transport *t, union arg_value *arg) {
+void cmd_mcu_attach(struct jtdev *p, struct transport *t, union arg_value *args) {
 	(void)args;
 	unsigned id = jtag_init(p);
 	send_status(t, p->status);
@@ -54,13 +54,13 @@ void cmd_mcu_attach(struct jtdev *p, struct transport *t, union arg_value *arg) 
 	}
 }
 
-void cmd_mcu_detach(struct jtdev *p, struct transport *t, union arg_value *arg) {
+void cmd_mcu_detach(struct jtdev *p, struct transport *t, union arg_value *args) {
 	address_t pc = args[0].uint;
 	jtag_release_device(p, pc);
 	send_status(t, p->status);
 }
 
-void cmd_mcu_get_id(struct jtdev *p, struct transport *t, union arg_value *arg) {
+void cmd_mcu_get_id(struct jtdev *p, struct transport *t, union arg_value *args) {
 	(void)args;
 	unsigned id = jtag_chip_id(p);
 	send_status(t, p->status);
@@ -156,6 +156,25 @@ void cmd_ram_verify(struct jtdev *p, struct transport *t, union arg_value *args)
 	send_status(t, ok ? p->status : STATUS_CONTENT_MISMATCH);
 }
 
+void cmd_flash_write(struct jtdev *p, struct transport *t, union arg_value *args) {
+	unsigned long offset  = args[0].uint;
+	unsigned long address = args[1].uint;
+	unsigned long nbytes  = args[2].uint;
+	if (offset >= FET_BUFFER_CAPACITY || nbytes > FET_BUFFER_CAPACITY - offset) {
+		send_status(t, STATUS_OUT_OF_BOUNDS);
+		return;
+	}
+
+	jtag_write_flash(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	send_status(t, p->status);
+}
+
+void cmd_flash_erase(struct jtdev *p, struct transport *t, union arg_value *args) {
+	(void)args;
+	jtag_erase_flash(p, JTAG_ERASE_MAIN, 0x0);
+	send_status(t, p->status);
+}
+
 void cmd_reg_read(struct jtdev *p, struct transport *t, union arg_value *args) {
 	address_t value = jtag_read_reg(p, args[0].uint);
 	send_status(t, p->status);
@@ -220,11 +239,11 @@ const struct cmd_def cmd_defs[] = {
 		ARG_UINT ARG_UINT ARG_UINT,
 		cmd_ram_verify,
 	},
-	{
+	/*{
 		"RAM:VERIFY_ERASED",
 		ARG_UINT ARG_UINT,
 		cmd_ram_verify_erased,
-	},
+	},*/
 	{
 		"FLASH:WRITE",
 		ARG_UINT ARG_UINT ARG_UINT,
@@ -232,7 +251,7 @@ const struct cmd_def cmd_defs[] = {
 	},
 	{
 		"FLASH:ERASE",
-		ARG_UINT ARG_UINT,
+		ARG_NONE,
 		cmd_flash_erase,
 	},
 	{

@@ -5,7 +5,7 @@
 #include "jtdev.h"
 #include "transport.h"
 
-#define FET_BUFFER_CAPACITY (256 * 1024)
+#define FET_BUFFER_CAPACITY (64 * 1024)
 
 extern unsigned char fet_buffer[FET_BUFFER_CAPACITY];
 

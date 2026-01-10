@@ -19,27 +19,50 @@ struct pico_dev {
 	int pin_tdo;
 	int pin_rst;
 	int pin_tst;
-	int pin_tclk;
 };
 
+void tusb_transport_flush_out(__unused struct transport *t);
+void tusb_transport_write(__unused struct transport *t, const void *buf, size_t max);
+
+#if 0
+#define PRINT_DEBUG_PINOUT(name, out)\
+	do {\
+		tusb_transport_write(NULL, (out) ? name "=1\r\n" : name "=0\r\n", strlen(name) + 4);\
+		tusb_transport_flush_out(NULL);\
+	} while (0)
+#else
+#define PRINT_DEBUG_PINOUT(name, out) do {} while (0)
+#endif
+
 void pico_dev_tck(struct jtdev *p, int out) {
+	PRINT_DEBUG_PINOUT("TCK", out);
 	gpio_put(((struct pico_dev *)p)->pin_tck, out);
+	sleep_us(1);
 }
 
 void pico_dev_tms(struct jtdev *p, int out) {
+	PRINT_DEBUG_PINOUT("TMS", out);
 	gpio_put(((struct pico_dev *)p)->pin_tms, out);
+	sleep_us(1);
 }
 
 void pico_dev_tdi(struct jtdev *p, int out) {
+	PRINT_DEBUG_PINOUT("TDI", out);
+	gpio_set_dir(((struct pico_dev *)p)->pin_tdi, GPIO_OUT);
 	gpio_put(((struct pico_dev *)p)->pin_tdi, out);
+	sleep_us(1);
 }
 
 void pico_dev_rst(struct jtdev *p, int out) {
+	PRINT_DEBUG_PINOUT("RST", out);
 	gpio_put(((struct pico_dev *)p)->pin_rst, out);
+	sleep_us(1);
 }
 
 void pico_dev_tst(struct jtdev *p, int out) {
+	PRINT_DEBUG_PINOUT("TST", out);
 	gpio_put(((struct pico_dev *)p)->pin_tst, out);
+	sleep_us(1);
 }
 
 int pico_dev_tdo_get(struct jtdev *p) {
@@ -47,17 +70,26 @@ int pico_dev_tdo_get(struct jtdev *p) {
 }
 
 void pico_dev_tclk(struct jtdev *p, int out) {
-	gpio_put(((struct pico_dev *)p)->pin_tclk, out);
+	PRINT_DEBUG_PINOUT("TDI", out);
+	gpio_set_dir(((struct pico_dev *)p)->pin_tdi, GPIO_OUT);
+	gpio_put(((struct pico_dev *)p)->pin_tdi, out);
+	sleep_us(1);
 }
 
 int pico_dev_tclk_get(struct jtdev *p) {
-	return gpio_get(((struct pico_dev *)p)->pin_tclk);
+	gpio_set_dir(((struct pico_dev *)p)->pin_tdi, GPIO_IN);
+	return gpio_get(((struct pico_dev *)p)->pin_tdi);
 }
 
 void pico_dev_tclk_strobe(struct jtdev *p, unsigned int count) {
+	gpio_set_dir(((struct pico_dev *)p)->pin_tdi, GPIO_OUT);
 	while (count) {
-		gpio_put(((struct pico_dev *)p)->pin_tclk, 0);
-		gpio_put(((struct pico_dev *)p)->pin_tclk, 1);
+		PRINT_DEBUG_PINOUT("TDI", 0);
+		gpio_put(((struct pico_dev *)p)->pin_tdi, 0);
+		sleep_us(1);
+		PRINT_DEBUG_PINOUT("TDI", 1);
+		gpio_put(((struct pico_dev *)p)->pin_tdi, 1);
+		sleep_us(1);
 		count--;
 	}
 }
@@ -167,13 +199,12 @@ int main() {
 			.f = &pico_dev_func,
 			.status = STATUS_OK,
 		},
-		.pin_tck = 0,
-		.pin_tms = 0,
-		.pin_tdi = 0,
-		.pin_tdo = 1,
-		.pin_rst = 0,
-		.pin_tst = 0,
-		.pin_tclk = 0,
+		.pin_tck  = 8,
+		.pin_tms  = 9,
+		.pin_tdi  = 13,
+		.pin_tdo  = 12,
+		.pin_rst  = 11,
+		.pin_tst  = 10,
 	};
 
 	struct transport tran = {
@@ -188,10 +219,23 @@ int main() {
 	// is in milliseconds, it really seems to be in microseconds.
 	watchdog_enable(5 * 1000 * 1000, true);
 
-	gpio_init(0);
-	gpio_set_dir(0, GPIO_OUT);
-	gpio_init(1);
-	gpio_set_dir(1, GPIO_IN);
+	gpio_init(dev.pin_tck);
+	gpio_set_dir(dev.pin_tck, GPIO_OUT);
+	
+	gpio_init(dev.pin_tms);
+	gpio_set_dir(dev.pin_tms, GPIO_OUT);
+	
+	gpio_init(dev.pin_tdi);
+	gpio_set_dir(dev.pin_tdi, GPIO_OUT);
+	
+	gpio_init(dev.pin_tdo);
+	gpio_set_dir(dev.pin_tdo, GPIO_IN);
+	
+	gpio_init(dev.pin_rst);
+	gpio_set_dir(dev.pin_rst, GPIO_OUT);
+	
+	gpio_init(dev.pin_tst);
+	gpio_set_dir(dev.pin_tst, GPIO_OUT);
 	
 	size_t buffered = 0;
 	for (;;) {
