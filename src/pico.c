@@ -4,14 +4,11 @@
 #include <hardware/gpio.h>
 #include <tusb.h>
 
-#include "fetcore.h"
+#include "picofet_proto.h"
 #include "jtaglib.h"
-
-extern void command_loop(struct jtdev *p, struct comm *t);
-
-// Global buffers
-
-unsigned char fet_buffer[FET_BUFFER_CAPACITY];
+#include "jtdev.h"
+#include "comm.h"
+#include "cmd.h"
 
 // JTAG device declaration & plumbing code
 
@@ -207,7 +204,7 @@ struct comm_func comm_tusb_func = {
 	.comm_flush_out = comm_tusb_flush_out,
 };
 
-// Initialization & I/O loop
+// Initialization
 
 int main() {
 	// Even though the SDK documentation says that the watchdog timeout

@@ -6,8 +6,10 @@
 #include "picofet_proto.h"
 #include "jtaglib.h"
 #include "jtdev.h"
-#include "fetcore.h"
+#include "comm.h"
+#include "cmd.h"
 
+#define MAX_COMMAND_LENGTH 256
 #define MAX_ARGS 8
 
 #define TYPECODE_SYMBOL ((int)'y')
@@ -30,6 +32,10 @@ struct cmd_def {
 	const char *args[MAX_ARGS];
 	void      (*func)(struct jtdev *p, struct comm *t, union arg_value *args);
 };
+
+unsigned char fet_buffer[FET_BUFFER_CAPACITY];
+
+char command_line[MAX_COMMAND_LENGTH];
 
 void send_status(struct comm *t, int status) {
 	char msg[6];
@@ -350,10 +356,6 @@ void process_command(struct jtdev *p, struct comm *t, char *line) {
 
 	cmd->func(p, t, args);
 }
-
-#define MAX_COMMAND_LENGTH 256
-
-char command_line[MAX_COMMAND_LENGTH];
 
 void command_loop(struct jtdev *p, struct comm *t) {
 	size_t buffered = 0;
