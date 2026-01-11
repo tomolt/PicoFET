@@ -14,6 +14,7 @@
 
 void pico_dev_tck(struct jtdev *p, int out) {
 	gpio_put(p->pin_tck, out);
+	sleep_us(2);
 }
 
 void pico_dev_tms(struct jtdev *p, int out) {
@@ -40,6 +41,7 @@ int pico_dev_tdo_get(struct jtdev *p) {
 void pico_dev_tclk(struct jtdev *p, int out) {
 	gpio_set_dir(p->pin_tdi, GPIO_OUT);
 	gpio_put(p->pin_tdi, out);
+	sleep_us(2);
 }
 
 int pico_dev_tclk_get(struct jtdev *p) {
@@ -52,6 +54,7 @@ void pico_dev_tclk_strobe(struct jtdev *p, unsigned int count) {
 	while (count) {
 		gpio_put(p->pin_tdi, 0);
 		gpio_put(p->pin_tdi, 1);
+		sleep_us(2);
 		count--;
 	}
 }

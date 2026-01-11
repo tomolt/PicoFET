@@ -39,9 +39,9 @@ unsigned char fet_buffer[FET_BUFFER_CAPACITY];
 char command_line[MAX_COMMAND_LENGTH];
 
 void send_status(struct comm *t, int status) {
-	char msg[6];
-	sprintf(msg, "%03d\r\n", status);
-	t->f->comm_write(t, msg, 5);
+	char msg[64];
+	int length = snprintf(msg, sizeof msg, "%03d %s\r\n", status, pfet_get_status_message(status));
+	t->f->comm_write(t, msg, length);
 }
 
 void send_address(struct comm *t, address_t address) {
@@ -375,6 +375,26 @@ void cmd_reg_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 	}
 }
 
+void cmd_fuses_read(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
+	int fuses = jtag_get_config_fuses(p);
+
+	send_status(t, p->status);
+	if (p->status == STATUS_OK) {
+		send_address(t, fuses);
+	}
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
+}
+
 void cmd_info_commands(struct jtdev *p, struct comm *t, union arg_value *args);
 
 const struct cmd_def cmd_defs[] = {
@@ -477,6 +497,11 @@ const struct cmd_def cmd_defs[] = {
 		"REG:WRITE",
 		{ ARG_UINT "reg_idx", ARG_SINT "value", NULL },
 		cmd_reg_write,
+	},
+	{
+		"FUSES:READ",
+		{ NULL },
+		cmd_fuses_read,
 	},
 };
 
