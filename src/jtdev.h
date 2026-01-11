@@ -26,6 +26,13 @@ struct jtdev_func;
 struct jtdev {
 	const struct jtdev_func *f;
 	int status;
+
+	int pin_tck;
+	int pin_tms;
+	int pin_tdi;
+	int pin_tdo;
+	int pin_rst;
+	int pin_tst;
 };
 
 struct jtdev_func {

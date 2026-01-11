@@ -16,65 +16,46 @@ static char line[MAX_COMMAND_LENGTH];
 
 // JTAG device declaration & plumbing code
 
-struct pico_dev {
-	struct jtdev jtdev; // must be the first member
-	int pin_tck;
-	int pin_tms;
-	int pin_tdi;
-	int pin_tdo;
-	int pin_rst;
-	int pin_tst;
-};
-
 void pico_dev_tck(struct jtdev *p, int out) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_put(d->pin_tck, out);
+	gpio_put(p->pin_tck, out);
 }
 
 void pico_dev_tms(struct jtdev *p, int out) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_put(d->pin_tms, out);
+	gpio_put(p->pin_tms, out);
 }
 
 void pico_dev_tdi(struct jtdev *p, int out) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_set_dir(d->pin_tdi, GPIO_OUT);
-	gpio_put(d->pin_tdi, out);
+	gpio_set_dir(p->pin_tdi, GPIO_OUT);
+	gpio_put(p->pin_tdi, out);
 }
 
 void pico_dev_rst(struct jtdev *p, int out) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_put(d->pin_rst, out);
+	gpio_put(p->pin_rst, out);
 }
 
 void pico_dev_tst(struct jtdev *p, int out) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_put(d->pin_tst, out);
+	gpio_put(p->pin_tst, out);
 }
 
 int pico_dev_tdo_get(struct jtdev *p) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	return gpio_get(d->pin_tdo);
+	return gpio_get(p->pin_tdo);
 }
 
 void pico_dev_tclk(struct jtdev *p, int out) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_set_dir(d->pin_tdi, GPIO_OUT);
-	gpio_put(d->pin_tdi, out);
+	gpio_set_dir(p->pin_tdi, GPIO_OUT);
+	gpio_put(p->pin_tdi, out);
 }
 
 int pico_dev_tclk_get(struct jtdev *p) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_set_dir(d->pin_tdi, GPIO_IN);
-	return gpio_get(d->pin_tdi);
+	gpio_set_dir(p->pin_tdi, GPIO_IN);
+	return gpio_get(p->pin_tdi);
 }
 
 void pico_dev_tclk_strobe(struct jtdev *p, unsigned int count) {
-	const struct pico_dev *d = (const struct pico_dev *)p;
-	gpio_set_dir(d->pin_tdi, GPIO_OUT);
+	gpio_set_dir(p->pin_tdi, GPIO_OUT);
 	while (count) {
-		gpio_put(d->pin_tdi, 0);
-		gpio_put(d->pin_tdi, 1);
+		gpio_put(p->pin_tdi, 0);
+		gpio_put(p->pin_tdi, 1);
 		count--;
 	}
 }
@@ -93,52 +74,49 @@ void pico_dev_release  (__unused struct jtdev *p) {}
 int pico_dev_open(struct jtdev *p, __unused const char *device) {
 	extern const struct jtdev_func pico_dev_func;
 
-	struct pico_dev *d = (struct pico_dev *)p;
-
 	// Fill out the JTAG device structure
 
-	d->jtdev.f = &pico_dev_func;
-	d->jtdev.status = STATUS_OK;
-	d->pin_tck = 8;
-	d->pin_tms = 9;
-	d->pin_tdi = 13;
-	d->pin_tdo = 12;
-	d->pin_rst = 11;
-	d->pin_tst = 10;
+	p->f = &pico_dev_func;
+	p->status = STATUS_OK;
+	p->pin_tck = 8;
+	p->pin_tms = 9;
+	p->pin_tdi = 13;
+	p->pin_tdo = 12;
+	p->pin_rst = 11;
+	p->pin_tst = 10;
 
 	// Initialize hardware pins accordingly
 
 	status_led_init();
 
-	gpio_init(d->pin_tck);
-	gpio_set_dir(d->pin_tck, GPIO_OUT);
+	gpio_init(p->pin_tck);
+	gpio_set_dir(p->pin_tck, GPIO_OUT);
 	
-	gpio_init(d->pin_tms);
-	gpio_set_dir(d->pin_tms, GPIO_OUT);
+	gpio_init(p->pin_tms);
+	gpio_set_dir(p->pin_tms, GPIO_OUT);
 	
-	gpio_init(d->pin_tdi);
-	gpio_set_dir(d->pin_tdi, GPIO_OUT);
+	gpio_init(p->pin_tdi);
+	gpio_set_dir(p->pin_tdi, GPIO_OUT);
 	
-	gpio_init(d->pin_tdo);
-	gpio_set_dir(d->pin_tdo, GPIO_IN);
+	gpio_init(p->pin_tdo);
+	gpio_set_dir(p->pin_tdo, GPIO_IN);
 	
-	gpio_init(d->pin_rst);
-	gpio_set_dir(d->pin_rst, GPIO_OUT);
+	gpio_init(p->pin_rst);
+	gpio_set_dir(p->pin_rst, GPIO_OUT);
 	
-	gpio_init(d->pin_tst);
-	gpio_set_dir(d->pin_tst, GPIO_OUT);
+	gpio_init(p->pin_tst);
+	gpio_set_dir(p->pin_tst, GPIO_OUT);
 	
 	return 0;
 }
 
 void pico_dev_close(struct jtdev *p) {
-	struct pico_dev *d = (struct pico_dev *)p;
-	gpio_deinit(d->pin_tck);
-	gpio_deinit(d->pin_tms);
-	gpio_deinit(d->pin_tdi);
-	gpio_deinit(d->pin_tdo);
-	gpio_deinit(d->pin_rst);
-	gpio_deinit(d->pin_tst);
+	gpio_deinit(p->pin_tck);
+	gpio_deinit(p->pin_tms);
+	gpio_deinit(p->pin_tdi);
+	gpio_deinit(p->pin_tdo);
+	gpio_deinit(p->pin_rst);
+	gpio_deinit(p->pin_tst);
 }
 
 const struct jtdev_func pico_dev_func = {
@@ -170,7 +148,21 @@ const struct jtdev_func pico_dev_func = {
 	.jtdev_init_dap     = jtag_default_init_dap,
 };
 
-// Command transport over (Tiny)USB
+// Communication with host via (Tiny)USB
+
+void tusb_transport_open(struct transport *t) {
+	extern struct transport_func tusb_transport_func;
+	
+	tusb_init();
+	while (!tud_cdc_connected()) {
+		tud_task();
+		sleep_ms(10);
+	}
+	sleep_ms(10);
+
+	t->f = &tusb_transport_func;
+
+}
 
 size_t tusb_transport_read_nb(__unused struct transport *t, void *buf, size_t max) {
 	watchdog_update();
@@ -209,6 +201,7 @@ void tusb_transport_flush_out(__unused struct transport *t) {
 }
 
 struct transport_func tusb_transport_func = {
+	.open      = tusb_transport_open,
 	.read_nb   = tusb_transport_read_nb,
 	.write     = tusb_transport_write,
 	.flush_out = tusb_transport_flush_out,
@@ -232,7 +225,7 @@ int main() {
 		.f = &tusb_transport_func,
 	};
 
-	struct pico_dev pico_dev;
+	struct jtdev pico_dev;
 	pico_dev_func.jtdev_open((struct jtdev *)&pico_dev, NULL);
 
 	if (watchdog_caused_reboot()) {
