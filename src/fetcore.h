@@ -1,7 +1,7 @@
 #ifndef FETA_H_
 #define FETA_H_
 
-#include "status.h"
+#include "picofet_proto.h"
 #include "jtdev.h"
 #include "comm.h"
 

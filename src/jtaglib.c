@@ -39,7 +39,7 @@
 #include "jtaglib.h"
 #include "jtdev.h"
 #include "eem_defs.h"
-#include "status.h"
+#include "picofet_proto.h"
 
 /* JTAG identification value for all existing Flash-based MSP430 devices
  */

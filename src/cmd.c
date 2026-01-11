@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "status.h"
+#include "picofet_proto.h"
 #include "jtaglib.h"
 #include "jtdev.h"
 #include "fetcore.h"
