@@ -6,7 +6,7 @@ project(PicoFET)
 
 pico_sdk_init()
 
-add_executable(PicoFET src/cmd.c src/jtaglib.c src/pico.c src/usb_descriptors.c)
+add_executable(PicoFET src/cmd.c src/jtaglib.c src/ops.c src/pico.c src/usb_descriptors.c)
 target_compile_options(PicoFET PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(PicoFET tinyusb_device_unmarked)
 target_link_libraries(PicoFET pico_stdlib)

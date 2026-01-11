@@ -98,10 +98,10 @@ int jtag_erase_check(struct jtdev *p,
 		     unsigned int word_count);
 
 /* Programs/verifies an array of words into a FLASH */
-void jtag_write_flash(struct jtdev *p,
+void jtag_write_flash_le(struct jtdev *p,
 		      address_t start_address,
 		      unsigned int word_count,
-		      const uint16_t *data);
+		      const uint8_t *data);
 
 /* Performs a mass erase or a segment erase of a FLASH module */
 void jtag_erase_flash(struct jtdev *p,

@@ -763,19 +763,22 @@ int jtag_erase_check(struct jtdev *p,
 	return jtag_verify_psa(p, start_address, length, NULL);
 }
 
-/* Programs/verifies an array of words into a FLASH by using the
+/* Programs/verifies data into a FLASH by using the
  * FLASH controller. The JTAG FLASH register isn't needed.
- * start_address: start in FLASH
+ * The input data is interpreted as an array of little-endian 16-bit words,
+ * as required by the FLASH controller.
+ * start_address: start in FLASH, aligned to word address
  * length       : number of words
  * data         : pointer to data
  */
-void jtag_write_flash(struct jtdev *p,
+void jtag_write_flash_le(struct jtdev *p,
 		      address_t start_address,
 		      unsigned int length,
-		      const uint16_t *data)
+		      const uint8_t *data)
 {
 	unsigned int index;
 	unsigned int address;
+	uint16_t word;
 
 	jtag_led_red_on(p);
 
@@ -827,8 +830,9 @@ void jtag_write_flash(struct jtdev *p,
 		jtag_dr_shift_16(p, address);
 
 		/* Set data */
+		word = data[2*index+0] + (data[2*index+1] << 8);
 		jtag_ir_shift(p, IR_DATA_TO_ADDR);
-		jtag_dr_shift_16(p, data[index]);
+		jtag_dr_shift_16(p, word);
 		jtag_tclk_set(p);
 		jtag_tclk_clr(p);
 

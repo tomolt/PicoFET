@@ -31,6 +31,8 @@
 typedef uint32_t address_t;
 
 #define ADDRESS_NONE ((address_t)0xffffffff)
+
+/* printf() specifier macros for address_t */
 #define PRIuADDR PRIu32
 #define PRIXADDR PRIX32
 

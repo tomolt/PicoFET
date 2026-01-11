@@ -8,6 +8,7 @@
 #include "jtdev.h"
 #include "comm.h"
 #include "cmd.h"
+#include "ops.h"
 
 #define MAX_COMMAND_LENGTH 256
 #define MAX_ARGS 8
@@ -98,6 +99,70 @@ void cmd_mcu_get_id(struct jtdev *p, struct comm *t, union arg_value *args) {
 	}
 }
 
+void cmd_mcu_reset(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
+	jtag_execute_puc(p); // FIXME
+	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
+}
+
+void cmd_mcu_continue(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
+	jtag_release_device(p, 0xffff);
+	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
+}
+
+void cmd_mcu_halt(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
+	jtag_get_device(p);
+	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
+}
+
+void cmd_mcu_step(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
+	jtag_single_step(p);
+	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
+}
+
 void cmd_buf_capacity(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	(void)args;
@@ -158,7 +223,7 @@ void cmd_ram_read(struct jtdev *p, struct comm *t, union arg_value *args) {
 	}
 
 	p->status = STATUS_OK;
-	jtag_read_mem_quick(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	read_memory(p, address, nbytes, fet_buffer + offset);
 	send_status(t, p->status);
 	if (p->status != STATUS_OK) {
 		p->attached = false;
@@ -180,7 +245,7 @@ void cmd_ram_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 	}
 
 	p->status = STATUS_OK;
-	jtag_write_mem_quick(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	write_ram(p, address, nbytes, fet_buffer + offset);
 	send_status(t, p->status);
 	if (p->status != STATUS_OK) {
 		p->attached = false;
@@ -202,6 +267,7 @@ void cmd_ram_verify(struct jtdev *p, struct comm *t, union arg_value *args) {
 	}
 
 	p->status = STATUS_OK;
+	// FIXME implement misaligned verify
 	int ok = jtag_verify_mem(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
 	send_status(t, ok ? p->status : STATUS_CONTENT_MISMATCH);
 }
@@ -221,11 +287,28 @@ void cmd_flash_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 	}
 
 	p->status = STATUS_OK;
-	jtag_write_flash(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
+	write_flash(p, address, nbytes, fet_buffer + offset);
 	send_status(t, p->status);
 }
 
-void cmd_flash_erase(struct jtdev *p, struct comm *t, union arg_value *args) {
+void cmd_flash_erase_all(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
+	jtag_erase_flash(p, JTAG_ERASE_MASS, 0x0);
+
+	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
+}
+
+void cmd_flash_erase_main(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
 
 	if (!p->attached) {
@@ -235,6 +318,23 @@ void cmd_flash_erase(struct jtdev *p, struct comm *t, union arg_value *args) {
 
 	p->status = STATUS_OK;
 	jtag_erase_flash(p, JTAG_ERASE_MAIN, 0x0);
+
+	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
+}
+
+void cmd_flash_erase_seg(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	address_t address = args[0].uint;
+
+	p->status = STATUS_OK;
+	jtag_erase_flash(p, JTAG_ERASE_SGMT, address);
 
 	send_status(t, p->status);
 	if (p->status != STATUS_OK) {
@@ -299,53 +399,83 @@ const struct cmd_def cmd_defs[] = {
 		cmd_mcu_get_id,
 	},
 	{
+		"MCU:RESET",
+		{ NULL },
+		cmd_mcu_reset,
+	},
+	{
+		"MCU:CONTINUE",
+		{ NULL },
+		cmd_mcu_continue,
+	},
+	{
+		"MCU:HALT",
+		{ NULL },
+		cmd_mcu_halt,
+	},
+	{
+		"MCU:STEP",
+		{ NULL },
+		cmd_mcu_step,
+	},
+	{
 		"BUF:CAPACITY",
 		{ NULL },
 		cmd_buf_capacity,
 	},
 	{
 		"BUF:UPLOAD_BIN",
-		{ ARG_UINT "buf_offset", ARG_UINT "num_bytes" },
+		{ ARG_UINT "buf_offset", ARG_UINT "num_bytes", NULL },
 		cmd_buf_upload_bin,
 	},
 	{
 		"BUF:DOWNLOAD_BIN",
-		{ ARG_UINT "buf_offset", ARG_UINT "num_bytes" },
+		{ ARG_UINT "buf_offset", ARG_UINT "num_bytes", NULL },
 		cmd_buf_download_bin,
 	},
 	{
 		"RAM:READ",
-		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes", NULL },
 		cmd_ram_read,
 	},
 	{
 		"RAM:WRITE",
-		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes", NULL },
 		cmd_ram_write,
 	},
 	{
 		"RAM:VERIFY",
-		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes", NULL },
 		cmd_ram_verify,
 	},
 	{
 		"FLASH:WRITE",
-		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes", NULL },
 		cmd_flash_write,
 	},
 	{
-		"FLASH:ERASE",
+		"FLASH:ERASE_ALL",
 		{ NULL },
-		cmd_flash_erase,
+		cmd_flash_erase_all,
+	},
+	{
+		"FLASH:ERASE_MAIN",
+		{ NULL },
+		cmd_flash_erase_main,
+	},
+	{
+		"FLASH:ERASE_SEG",
+		{ ARG_UINT "address", NULL },
+		cmd_flash_erase_seg,
 	},
 	{
 		"REG:READ",
-		{ ARG_UINT "reg_idx" },
+		{ ARG_UINT "reg_idx", NULL },
 		cmd_reg_read,
 	},
 	{
 		"REG:WRITE",
-		{ ARG_UINT "reg_idx", ARG_SINT "value" },
+		{ ARG_UINT "reg_idx", ARG_SINT "value", NULL },
 		cmd_reg_write,
 	},
 };
