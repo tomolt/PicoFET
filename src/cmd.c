@@ -19,8 +19,6 @@
 #define TYPECODE_SINT   ((int)'i')
 #define ARG_SINT        "i"
 
-#define ARG_NONE        ""
-
 union arg_value {
 	char         *symbol;
 	unsigned long uint;
@@ -29,7 +27,7 @@ union arg_value {
 
 struct cmd_def {
 	const char *name;
-	const char *signature;
+	const char *args[MAX_ARGS];
 	void      (*func)(struct jtdev *p, struct transport *t, union arg_value *args);
 };
 
@@ -191,52 +189,52 @@ void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *ar
 const struct cmd_def cmd_defs[] = {
 	{
 		"INFO:COMMANDS",
-		ARG_NONE,
+		{ NULL },
 		cmd_info_commands,
 	},
 	{
 		"MCU:ATTACH",
-		ARG_NONE,
+		{ NULL },
 		cmd_mcu_attach,
 	},
 	{
 		"MCU:DETACH",
-		ARG_UINT,
+		{ ARG_UINT "mcu_id" },
 		cmd_mcu_detach,
 	},
 	{
 		"MCU:GET_ID",
-		ARG_NONE,
+		{ NULL },
 		cmd_mcu_get_id,
 	},
 	{
 		"BUF:CAPACITY",
-		ARG_NONE,
+		{ NULL },
 		cmd_buf_capacity,
 	},
 	{
 		"BUF:UPLOAD_BIN",
-		ARG_UINT ARG_UINT,
+		{ ARG_UINT "buf_offset", ARG_UINT "num_bytes" },
 		cmd_buf_upload_bin,
 	},
 	{
 		"BUF:DOWNLOAD_BIN",
-		ARG_UINT ARG_UINT,
+		{ ARG_UINT "buf_offset", ARG_UINT "num_bytes" },
 		cmd_buf_download_bin,
 	},
 	{
 		"RAM:READ",
-		ARG_UINT ARG_UINT ARG_UINT,
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
 		cmd_ram_read,
 	},
 	{
 		"RAM:WRITE",
-		ARG_UINT ARG_UINT ARG_UINT,
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
 		cmd_ram_write,
 	},
 	{
 		"RAM:VERIFY",
-		ARG_UINT ARG_UINT ARG_UINT,
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
 		cmd_ram_verify,
 	},
 	/*{
@@ -246,22 +244,22 @@ const struct cmd_def cmd_defs[] = {
 	},*/
 	{
 		"FLASH:WRITE",
-		ARG_UINT ARG_UINT ARG_UINT,
+		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
 		cmd_flash_write,
 	},
 	{
 		"FLASH:ERASE",
-		ARG_NONE,
+		{ NULL },
 		cmd_flash_erase,
 	},
 	{
 		"REG:READ",
-		ARG_UINT,
+		{ ARG_UINT "reg_idx" },
 		cmd_reg_read,
 	},
 	{
 		"REG:WRITE",
-		ARG_UINT ARG_SINT,
+		{ ARG_UINT "reg_idx", ARG_SINT "value" },
 		cmd_reg_write,
 	},
 };
@@ -272,6 +270,11 @@ void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *ar
 	send_status(t, STATUS_OK);
 	for (unsigned i = 0; i < ARRAY_LEN(cmd_defs); i++) {
 		t->f->write(t, cmd_defs[i].name, strlen(cmd_defs[i].name));
+		for (int a = 0; cmd_defs[i].args[a]; a++) {
+			char buf[32];
+			snprintf(buf, sizeof buf, " %s", cmd_defs[i].args[a]+1);
+			t->f->write(t, buf, strlen(buf));
+		}
 		t->f->write(t, "\r\n", 2);
 	}
 	t->f->write(t, ".\r\n", 3);
@@ -302,7 +305,7 @@ void process_command(struct jtdev *p, struct transport *t, char *line) {
 	union arg_value args[MAX_ARGS];
 	unsigned argc = 0;
 	while ((tok = strtok_r(NULL, tok_separators, &saveptr))) {
-		switch (cmd->signature[argc]) {
+		switch (cmd->args[argc][0]) {
 		case TYPECODE_SYMBOL:
 			args[argc].symbol = tok;
 			break;
@@ -340,7 +343,7 @@ void process_command(struct jtdev *p, struct transport *t, char *line) {
 
 		argc++;
 	}
-	if (cmd->signature[argc]) {
+	if (cmd->args[argc]) {
 		send_status(t, STATUS_INVALID_ARGUMENTS);
 		return;
 	}
