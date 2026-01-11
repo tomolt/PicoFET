@@ -18,7 +18,7 @@ This project is built upon unmodified Raspberry Pi Pico (or compatible) MCUs, wh
 
 ## Installing
 
-### Using picotool
+### With picotool
 
 First, download, compile, and install [picotool](https://github.com/raspberrypi/picotool).
 
@@ -33,6 +33,21 @@ picotool reboot
 ```
 
 ## Building from Source
+
+## Connecting Pins
+
+The following table lists the default pinout of the pico board:
+
+| Board Pin No. | GPIO Pin No. | JTAG Pin Function |
+| ------------: | -----------: | :---------------- |
+|            11 |            8 | TCK               |
+|            12 |            9 | TMS               |
+|            13 |            - | VSS (GND)         |
+|            14 |           10 | TST               |
+|            15 |           11 | ~RST              |
+|            16 |           12 | TDO               |
+|            17 |           13 | TDI (TCLK)        |
+|            36 |            - | VCC               |
 
 ## Contributing
 
