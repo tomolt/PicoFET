@@ -34,13 +34,13 @@ struct cmd_def {
 void send_status(struct comm *t, int status) {
 	char msg[6];
 	sprintf(msg, "%03d\r\n", status);
-	t->f->write(t, msg, 5);
+	t->f->comm_write(t, msg, 5);
 }
 
 void send_address(struct comm *t, address_t address) {
 	char msg[13];
 	sprintf(msg, "0x%08" PRIXADDR "\r\n", address);
-	t->f->write(t, msg, 12);
+	t->f->comm_write(t, msg, 12);
 }
 
 void cmd_mcu_attach(struct jtdev *p, struct comm *t, union arg_value *args) {
@@ -89,7 +89,7 @@ void cmd_buf_upload_bin(struct jtdev *p, struct comm *t, union arg_value *args) 
 
 	unsigned received = 0;
 	while (received < nbytes) {
-		received += t->f->read_nb(t, fet_buffer + offset + received, nbytes - received);
+		received += t->f->comm_read_nb(t, fet_buffer + offset + received, nbytes - received);
 	}
 
 	send_status(t, STATUS_OK);
@@ -109,7 +109,7 @@ void cmd_buf_download_bin(struct jtdev *p, struct comm *t, union arg_value *args
 	send_status(t, STATUS_CONTINUE_TRANSFER);
 	p->f->jtdev_led_green(p, 1);
 
-	t->f->write(t, fet_buffer + offset, nbytes);
+	t->f->comm_write(t, fet_buffer + offset, nbytes);
 
 	send_status(t, STATUS_OK);
 	p->f->jtdev_led_green(p, 0);
@@ -269,15 +269,15 @@ void cmd_info_commands(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
 	send_status(t, STATUS_OK);
 	for (unsigned i = 0; i < ARRAY_LEN(cmd_defs); i++) {
-		t->f->write(t, cmd_defs[i].name, strlen(cmd_defs[i].name));
+		t->f->comm_write(t, cmd_defs[i].name, strlen(cmd_defs[i].name));
 		for (int a = 0; cmd_defs[i].args[a]; a++) {
 			char buf[32];
 			snprintf(buf, sizeof buf, " %s", cmd_defs[i].args[a]+1);
-			t->f->write(t, buf, strlen(buf));
+			t->f->comm_write(t, buf, strlen(buf));
 		}
-		t->f->write(t, "\r\n", 2);
+		t->f->comm_write(t, "\r\n", 2);
 	}
-	t->f->write(t, ".\r\n", 3);
+	t->f->comm_write(t, ".\r\n", 3);
 }
 
 void process_command(struct jtdev *p, struct comm *t, char *line) {
@@ -349,4 +349,34 @@ void process_command(struct jtdev *p, struct comm *t, char *line) {
 	}
 
 	cmd->func(p, t, args);
+}
+
+#define MAX_COMMAND_LENGTH 256
+
+char command_line[MAX_COMMAND_LENGTH];
+
+void command_loop(struct jtdev *p, struct comm *t) {
+	size_t buffered = 0;
+	for (;;) {
+		char *lf, c;
+
+		buffered += t->f->comm_read_nb(t, command_line + buffered, sizeof command_line - buffered);
+
+		while ((lf = memchr(command_line, '\n', buffered))) {
+			*lf = '\0';
+			process_command(p, t, command_line);
+			t->f->comm_flush_out(t);
+			buffered -= lf + 1 - command_line;
+			memmove(command_line, lf + 1, buffered);
+		}
+
+		if (buffered == sizeof command_line) {
+			// discard any further input until we have reached a new line
+			do {
+				t->f->comm_read_nb(t, &c, 1);
+			} while (c != '\n');
+			buffered = 0;
+			send_status(t, STATUS_COMMAND_TOO_LONG);
+		}
+	}
 }

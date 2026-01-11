@@ -7,12 +7,11 @@
 #include "fetcore.h"
 #include "jtaglib.h"
 
-#define MAX_COMMAND_LENGTH 256
+extern void command_loop(struct jtdev *p, struct comm *t);
 
 // Global buffers
 
 unsigned char fet_buffer[FET_BUFFER_CAPACITY];
-static char line[MAX_COMMAND_LENGTH];
 
 // JTAG device declaration & plumbing code
 
@@ -195,16 +194,17 @@ void comm_tusb_write(__unused struct comm *t, const void *buf, size_t max) {
 }
 
 void comm_tusb_flush_out(__unused struct comm *t) {
+	watchdog_update();
 	do {
 		tud_task();
 	} while (tud_cdc_write_flush());
 }
 
 struct comm_func comm_tusb_func = {
-	.open      = comm_tusb_open,
-	.read_nb   = comm_tusb_read_nb,
-	.write     = comm_tusb_write,
-	.flush_out = comm_tusb_flush_out,
+	.comm_open      = comm_tusb_open,
+	.comm_read_nb   = comm_tusb_read_nb,
+	.comm_write     = comm_tusb_write,
+	.comm_flush_out = comm_tusb_flush_out,
 };
 
 // Initialization & I/O loop
@@ -214,54 +214,20 @@ int main() {
 	// is in milliseconds, it really seems to be in microseconds.
 	watchdog_enable(5 * 1000 * 1000, true);
 
-	tusb_init();
-	while (!tud_cdc_connected()) {
-		tud_task();
-		sleep_ms(10);
-	}
-	sleep_ms(10);
+	struct comm comm;
+	comm_tusb_func.comm_open(&comm);
 
-	struct comm tran = {
-		.f = &comm_tusb_func,
-	};
-
-	struct jtdev pico_dev;
-	pico_dev_func.jtdev_open((struct jtdev *)&pico_dev, NULL);
+	struct jtdev jtdev;
+	pico_dev_func.jtdev_open(&jtdev, NULL);
 
 	if (watchdog_caused_reboot()) {
-		send_status(&tran, STATUS_PROGRAMMER_FROZE);
+		send_status(&comm, STATUS_PROGRAMMER_FROZE);
 	}
 
-	size_t buffered = 0;
-	for (;;) {
-		char *lf, c;
-
-		tud_task();
-
-		buffered += tran.f->read_nb(&tran, line + buffered, sizeof line - buffered);
-
-		while ((lf = memchr(line, '\n', buffered))) {
-			*lf = '\0';
-
-			watchdog_update();
-			process_command((struct jtdev *)&pico_dev, &tran, line);
-			tran.f->flush_out(&tran);
-			buffered -= lf + 1 - line;
-			memmove(line, lf + 1, buffered);
-		}
-
-		if (buffered == sizeof line) {
-			// discard any further input until we have reached a new line
-			do {
-				tran.f->read_nb(&tran, &c, 1);
-			} while (c != '\n');
-			buffered = 0;
-			send_status(&tran, STATUS_COMMAND_TOO_LONG);
-		}
-	}
+	command_loop(&jtdev, &comm);
 
 	// Not reached
-	pico_dev_func.jtdev_close((struct jtdev *)&pico_dev);
+	pico_dev_func.jtdev_close(&jtdev);
 
 	return 0;
 }

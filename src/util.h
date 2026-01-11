@@ -34,10 +34,4 @@ typedef uint32_t address_t;
 #define PRIuADDR PRIu32
 #define PRIXADDR PRIX32
 
-#if 0
-/* Sleep for a number of seconds (_s) or milliseconds (_ms) */
-int delay_s(unsigned int s);
-int delay_ms(unsigned int s);
-#endif
-
 #endif
