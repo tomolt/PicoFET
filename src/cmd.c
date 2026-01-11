@@ -51,31 +51,57 @@ void send_address(struct comm *t, address_t address) {
 
 void cmd_mcu_attach(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
+
+	p->status = STATUS_OK;
+	p->attached = false;
 	unsigned id = jtag_init(p);
+
 	send_status(t, p->status);
 	if (p->status == STATUS_OK) {
+		p->attached = true;
 		send_address(t, id);
 	}
 }
 
 void cmd_mcu_detach(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
 	address_t pc = args[0].uint;
+	
+	p->status = STATUS_OK;
 	jtag_release_device(p, pc);
+	
 	send_status(t, p->status);
+	p->attached = false;
 }
 
 void cmd_mcu_get_id(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+	
+	p->status = STATUS_OK;
 	unsigned id = jtag_chip_id(p);
+	
 	send_status(t, p->status);
 	if (p->status == STATUS_OK) {
 		send_address(t, id);
+	}
+	if (p->status != STATUS_OK) {
+		p->attached = false;
 	}
 }
 
 void cmd_buf_capacity(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	(void)args;
+
 	send_status(t, STATUS_OK);
 	send_address(t, FET_BUFFER_CAPACITY);
 }
@@ -91,7 +117,6 @@ void cmd_buf_upload_bin(struct jtdev *p, struct comm *t, union arg_value *args) 
 	}
 
 	send_status(t, STATUS_CONTINUE_TRANSFER);
-	p->f->jtdev_led_green(p, 1);
 
 	unsigned received = 0;
 	while (received < nbytes) {
@@ -99,7 +124,6 @@ void cmd_buf_upload_bin(struct jtdev *p, struct comm *t, union arg_value *args) 
 	}
 
 	send_status(t, STATUS_OK);
-	p->f->jtdev_led_green(p, 0);
 }
 
 void cmd_buf_download_bin(struct jtdev *p, struct comm *t, union arg_value *args) {
@@ -113,15 +137,18 @@ void cmd_buf_download_bin(struct jtdev *p, struct comm *t, union arg_value *args
 	}
 
 	send_status(t, STATUS_CONTINUE_TRANSFER);
-	p->f->jtdev_led_green(p, 1);
 
 	t->f->comm_write(t, fet_buffer + offset, nbytes);
 
 	send_status(t, STATUS_OK);
-	p->f->jtdev_led_green(p, 0);
 }
 
 void cmd_ram_read(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -130,11 +157,20 @@ void cmd_ram_read(struct jtdev *p, struct comm *t, union arg_value *args) {
 		return;
 	}
 
+	p->status = STATUS_OK;
 	jtag_read_mem_quick(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
 	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
 }
 
 void cmd_ram_write(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -143,11 +179,20 @@ void cmd_ram_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 		return;
 	}
 
+	p->status = STATUS_OK;
 	jtag_write_mem_quick(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
 	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
 }
 
 void cmd_ram_verify(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -156,11 +201,17 @@ void cmd_ram_verify(struct jtdev *p, struct comm *t, union arg_value *args) {
 		return;
 	}
 
+	p->status = STATUS_OK;
 	int ok = jtag_verify_mem(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
 	send_status(t, ok ? p->status : STATUS_CONTENT_MISMATCH);
 }
 
 void cmd_flash_write(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -169,25 +220,59 @@ void cmd_flash_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 		return;
 	}
 
+	p->status = STATUS_OK;
 	jtag_write_flash(p, address, nbytes / 2, (uint16_t *)(fet_buffer + offset));
 	send_status(t, p->status);
 }
 
 void cmd_flash_erase(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
+
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
 	jtag_erase_flash(p, JTAG_ERASE_MAIN, 0x0);
+
 	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
 }
 
 void cmd_reg_read(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
 	address_t value = jtag_read_reg(p, args[0].uint);
+
 	send_status(t, p->status);
-	send_address(t, value);
+	if (p->status == STATUS_OK) {
+		send_address(t, value);
+	}
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
 }
 
 void cmd_reg_write(struct jtdev *p, struct comm *t, union arg_value *args) {
+	if (!p->attached) {
+		send_status(t, STATUS_NOT_ATTACHED);
+		return;
+	}
+
+	p->status = STATUS_OK;
 	jtag_write_reg(p, args[0].uint, args[1].uint);
+
 	send_status(t, p->status);
+	if (p->status != STATUS_OK) {
+		p->attached = false;
+	}
 }
 
 void cmd_info_commands(struct jtdev *p, struct comm *t, union arg_value *args);
@@ -243,11 +328,6 @@ const struct cmd_def cmd_defs[] = {
 		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },
 		cmd_ram_verify,
 	},
-	/*{
-		"RAM:VERIFY_ERASED",
-		ARG_UINT ARG_UINT,
-		cmd_ram_verify_erased,
-	},*/
 	{
 		"FLASH:WRITE",
 		{ ARG_UINT "buf_offset", ARG_UINT "address", ARG_UINT "num_bytes" },

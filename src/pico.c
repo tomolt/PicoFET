@@ -74,6 +74,7 @@ int pico_dev_open(struct jtdev *p, __unused const char *device) {
 
 	p->f = &pico_dev_func;
 	p->status = STATUS_OK;
+	p->attached = false;
 	p->pin_tck = 8;
 	p->pin_tms = 9;
 	p->pin_tdi = 13;

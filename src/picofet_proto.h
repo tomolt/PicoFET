@@ -39,6 +39,7 @@
 	X(400, TIMED_OUT,         "JTAG connection with MCU timed out")\
 	X(401, TRANSFER_FAILED,   "Transfer failed")\
 	X(402, PROGRAMMER_FROZE,  "Programmer Froze")\
+	X(403, NOT_ATTACHED,      "Not attached to MCU")\
 	/* end of status code list */
 
 enum {

@@ -21,11 +21,13 @@
 #define JTDEV_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 struct jtdev_func;
 struct jtdev {
 	const struct jtdev_func *f;
 	int status;
+	bool attached;
 
 	int pin_tck;
 	int pin_tms;
