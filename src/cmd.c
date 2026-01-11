@@ -28,22 +28,22 @@ union arg_value {
 struct cmd_def {
 	const char *name;
 	const char *args[MAX_ARGS];
-	void      (*func)(struct jtdev *p, struct transport *t, union arg_value *args);
+	void      (*func)(struct jtdev *p, struct comm *t, union arg_value *args);
 };
 
-void send_status(struct transport *t, int status) {
+void send_status(struct comm *t, int status) {
 	char msg[6];
 	sprintf(msg, "%03d\r\n", status);
 	t->f->write(t, msg, 5);
 }
 
-void send_address(struct transport *t, address_t address) {
+void send_address(struct comm *t, address_t address) {
 	char msg[13];
 	sprintf(msg, "0x%08" PRIXADDR "\r\n", address);
 	t->f->write(t, msg, 12);
 }
 
-void cmd_mcu_attach(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_mcu_attach(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
 	unsigned id = jtag_init(p);
 	send_status(t, p->status);
@@ -52,13 +52,13 @@ void cmd_mcu_attach(struct jtdev *p, struct transport *t, union arg_value *args)
 	}
 }
 
-void cmd_mcu_detach(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_mcu_detach(struct jtdev *p, struct comm *t, union arg_value *args) {
 	address_t pc = args[0].uint;
 	jtag_release_device(p, pc);
 	send_status(t, p->status);
 }
 
-void cmd_mcu_get_id(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_mcu_get_id(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
 	unsigned id = jtag_chip_id(p);
 	send_status(t, p->status);
@@ -67,14 +67,14 @@ void cmd_mcu_get_id(struct jtdev *p, struct transport *t, union arg_value *args)
 	}
 }
 
-void cmd_buf_capacity(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_buf_capacity(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	(void)args;
 	send_status(t, STATUS_OK);
 	send_address(t, FET_BUFFER_CAPACITY);
 }
 
-void cmd_buf_upload_bin(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_buf_upload_bin(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	
 	unsigned long offset = args[0].uint;
@@ -96,7 +96,7 @@ void cmd_buf_upload_bin(struct jtdev *p, struct transport *t, union arg_value *a
 	p->f->jtdev_led_green(p, 0);
 }
 
-void cmd_buf_download_bin(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_buf_download_bin(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	
 	unsigned long offset = args[0].uint;
@@ -115,7 +115,7 @@ void cmd_buf_download_bin(struct jtdev *p, struct transport *t, union arg_value 
 	p->f->jtdev_led_green(p, 0);
 }
 
-void cmd_ram_read(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_ram_read(struct jtdev *p, struct comm *t, union arg_value *args) {
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -128,7 +128,7 @@ void cmd_ram_read(struct jtdev *p, struct transport *t, union arg_value *args) {
 	send_status(t, p->status);
 }
 
-void cmd_ram_write(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_ram_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -141,7 +141,7 @@ void cmd_ram_write(struct jtdev *p, struct transport *t, union arg_value *args) 
 	send_status(t, p->status);
 }
 
-void cmd_ram_verify(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_ram_verify(struct jtdev *p, struct comm *t, union arg_value *args) {
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -154,7 +154,7 @@ void cmd_ram_verify(struct jtdev *p, struct transport *t, union arg_value *args)
 	send_status(t, ok ? p->status : STATUS_CONTENT_MISMATCH);
 }
 
-void cmd_flash_write(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_flash_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 	unsigned long offset  = args[0].uint;
 	unsigned long address = args[1].uint;
 	unsigned long nbytes  = args[2].uint;
@@ -167,24 +167,24 @@ void cmd_flash_write(struct jtdev *p, struct transport *t, union arg_value *args
 	send_status(t, p->status);
 }
 
-void cmd_flash_erase(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_flash_erase(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
 	jtag_erase_flash(p, JTAG_ERASE_MAIN, 0x0);
 	send_status(t, p->status);
 }
 
-void cmd_reg_read(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_reg_read(struct jtdev *p, struct comm *t, union arg_value *args) {
 	address_t value = jtag_read_reg(p, args[0].uint);
 	send_status(t, p->status);
 	send_address(t, value);
 }
 
-void cmd_reg_write(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_reg_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 	jtag_write_reg(p, args[0].uint, args[1].uint);
 	send_status(t, p->status);
 }
 
-void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *args);
+void cmd_info_commands(struct jtdev *p, struct comm *t, union arg_value *args);
 
 const struct cmd_def cmd_defs[] = {
 	{
@@ -264,7 +264,7 @@ const struct cmd_def cmd_defs[] = {
 	},
 };
 
-void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *args) {
+void cmd_info_commands(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	(void)args;
 	send_status(t, STATUS_OK);
@@ -280,7 +280,7 @@ void cmd_info_commands(struct jtdev *p, struct transport *t, union arg_value *ar
 	t->f->write(t, ".\r\n", 3);
 }
 
-void process_command(struct jtdev *p, struct transport *t, char *line) {
+void process_command(struct jtdev *p, struct comm *t, char *line) {
 	const char *tok_separators = " \t\r\n";
 	
 	char *tok, *saveptr, *end;

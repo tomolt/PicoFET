@@ -150,8 +150,8 @@ const struct jtdev_func pico_dev_func = {
 
 // Communication with host via (Tiny)USB
 
-void tusb_transport_open(struct transport *t) {
-	extern struct transport_func tusb_transport_func;
+void comm_tusb_open(struct comm *t) {
+	extern struct comm_func comm_tusb_func;
 	
 	tusb_init();
 	while (!tud_cdc_connected()) {
@@ -160,11 +160,11 @@ void tusb_transport_open(struct transport *t) {
 	}
 	sleep_ms(10);
 
-	t->f = &tusb_transport_func;
+	t->f = &comm_tusb_func;
 
 }
 
-size_t tusb_transport_read_nb(__unused struct transport *t, void *buf, size_t max) {
+size_t comm_tusb_read_nb(__unused struct comm *t, void *buf, size_t max) {
 	watchdog_update();
 	tud_task();
 	if (tud_cdc_connected() && tud_cdc_available()) {
@@ -174,7 +174,7 @@ size_t tusb_transport_read_nb(__unused struct transport *t, void *buf, size_t ma
 	}
 }
 
-void tusb_transport_write(__unused struct transport *t, const void *buf, size_t max) {
+void comm_tusb_write(__unused struct comm *t, const void *buf, size_t max) {
 	while (max) {
 		watchdog_update();
 
@@ -194,17 +194,17 @@ void tusb_transport_write(__unused struct transport *t, const void *buf, size_t 
 	}
 }
 
-void tusb_transport_flush_out(__unused struct transport *t) {
+void comm_tusb_flush_out(__unused struct comm *t) {
 	do {
 		tud_task();
 	} while (tud_cdc_write_flush());
 }
 
-struct transport_func tusb_transport_func = {
-	.open      = tusb_transport_open,
-	.read_nb   = tusb_transport_read_nb,
-	.write     = tusb_transport_write,
-	.flush_out = tusb_transport_flush_out,
+struct comm_func comm_tusb_func = {
+	.open      = comm_tusb_open,
+	.read_nb   = comm_tusb_read_nb,
+	.write     = comm_tusb_write,
+	.flush_out = comm_tusb_flush_out,
 };
 
 // Initialization & I/O loop
@@ -221,8 +221,8 @@ int main() {
 	}
 	sleep_ms(10);
 
-	struct transport tran = {
-		.f = &tusb_transport_func,
+	struct comm tran = {
+		.f = &comm_tusb_func,
 	};
 
 	struct jtdev pico_dev;
