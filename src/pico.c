@@ -5,6 +5,7 @@
 #include <tusb.h>
 
 #include "picofet_proto.h"
+#include "pinout.h"
 #include "jtaglib.h"
 #include "jtdev.h"
 #include "comm.h"
@@ -78,12 +79,12 @@ int pico_dev_open(struct jtdev *p, __unused const char *device) {
 	p->f = &pico_dev_func;
 	p->status = STATUS_OK;
 	p->attached = false;
-	p->pin_tck = 8;
-	p->pin_tms = 9;
-	p->pin_tdi = 13;
-	p->pin_tdo = 12;
-	p->pin_rst = 11;
-	p->pin_tst = 10;
+	p->pin_tck = PIN_TCK;
+	p->pin_tms = PIN_TMS;
+	p->pin_tdi = PIN_TDI;
+	p->pin_tdo = PIN_TDO;
+	p->pin_rst = PIN_RST;
+	p->pin_tst = PIN_TST;
 
 	// Initialize hardware pins accordingly
 
