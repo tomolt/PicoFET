@@ -97,6 +97,12 @@
 #define jtag_tms_sequence(p, bits, tms) p->f->jtdev_tms_sequence(p, bits, tms)
 #define jtag_init_dap(p) p->f->jtdev_init_dap(p)
 
+#define jtag_fail(p, sts) do {			\
+		(p)->status = (sts);		\
+		(p)->attached = false;		\
+		jtag_led_green_off(p);		\
+	} while (0)
+
 /* Reset target JTAG interface and perform fuse-HW check */
 static void jtag_default_reset_tap(struct jtdev *p)
 {
@@ -323,7 +329,7 @@ static int jtag_set_instruction_fetch(struct jtdev *p)
 		jtag_tclk_set(p); /* problems at MEM_QUICK_READ, it's from SLAU265 */
 	}
 
-	p->status = STATUS_TIMED_OUT;
+	jtag_fail(p, STATUS_TIMED_OUT);
 
 	return 0;
 }
@@ -449,20 +455,20 @@ unsigned int jtag_init(struct jtdev *p)
 
 	/* Check fuse */
 	if (jtag_is_fuse_blown(p)) {
-		p->status = STATUS_FUSE_BLOWN;
+		jtag_fail(p, STATUS_FUSE_BLOWN);
 		return 0;
 	}
 
 	/* Set device into JTAG mode */
 	jtag_id = jtag_get_device(p);
 	if (jtag_id == 0) {
-		p->status = STATUS_INVALID_JTAG_ID;
+		jtag_fail(p, STATUS_INVALID_JTAG_ID);
 		return 0;
 	}
 
 	/* Perform PUC, includes target watchdog disable */
 	if (jtag_execute_puc(p) != jtag_id) {
-		p->status = STATUS_PUC_FAILED;
+		jtag_fail(p, STATUS_PUC_FAILED);
 		return 0;
 	}
 
@@ -490,10 +496,11 @@ unsigned int jtag_get_device(struct jtdev *p)
 
 	if (loop_counter == 0) {
 		/* timeout reached */
-		p->status = STATUS_TIMED_OUT;
+		jtag_fail(p, STATUS_TIMED_OUT);
 		return 0;
 	}
 
+	p->attached = true;
 	jtag_led_green_on(p);
 	return jtag_id;
 }
@@ -710,6 +717,7 @@ unsigned int jtag_execute_puc(struct jtdev *p)
  */
 void jtag_release_device(struct jtdev *p, address_t address)
 {
+	p->attached = false;
 	jtag_led_green_off(p);
 
 	switch (address) {
@@ -1089,7 +1097,7 @@ void jtag_single_step( struct jtdev *p )
 
 	if (loop_counter == 0) {
 		/* timeout reached */
-		p->status = STATUS_TIMED_OUT;
+		jtag_fail(p, STATUS_TIMED_OUT);
 	}
 }
 
@@ -1107,7 +1115,7 @@ unsigned int jtag_set_breakpoint( struct jtdev *p,int bp_num, address_t bp_addr 
 
 	if (bp_num >= 8) {
 		/* there are no more than 8 breakpoints in EEM */
-		p->status = STATUS_TOO_MANY_BREAKS;
+		jtag_fail(p, STATUS_TOO_MANY_BREAKS);
 		return 0;
 	}
 
