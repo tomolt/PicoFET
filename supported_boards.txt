@@ -1,0 +1,6 @@
+pico
+pico_w
+pico2
+pico2_w
+seeed_xiao_rp2040
+seeed_xiao_rp2350

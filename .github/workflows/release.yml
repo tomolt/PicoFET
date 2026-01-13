@@ -1,0 +1,72 @@
+name: Compile Release Assets
+
+on:
+  release:
+    types:
+      - created
+      - edited
+
+permissions:
+  contents: write
+
+env:
+  pico_version: 2.2.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cross compiler
+      # The popular cached apt-install action awalsh128/cache-apt-pkgs-action is buggy, so we have to install packages without caching them.
+      run: sudo apt-get install gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+
+    - name: Cache pico-sdk and picotool
+      id: cache-sdk
+      uses: actions/cache@v4
+      with:
+        path: |
+          - ${{ github.workspace }}/pico-sdk
+          - ${{ github.workspace }}/picotool
+        key: ${{ runner.os }}_pico-sdk-${{ env.pico_version }}
+    
+    - name: Check out pico-sdk
+      if: steps.cache-sdk.outputs.cache-hit != 'true'
+      uses: actions/checkout@v4
+      with:
+        repository: raspberrypi/pico-sdk
+        ref: refs/tags/${{ env.pico_version }}
+        path: pico-sdk
+        submodules: 'true'
+
+    - name: Check out picotool
+      if: steps.cache-sdk.outputs.cache-hit != 'true'
+      uses: actions/checkout@v4
+      with:
+        repository: raspberrypi/picotool
+        ref: refs/tags/${{ env.pico_version }}
+        path: picotool
+
+    - name: Build picotool
+      if: steps.cache-sdk.outputs.cache-hit != 'true'
+      uses: threeal/cmake-action@v2.1.0
+      with:
+        source-dir: picotool
+        build-dir: picotool/build
+
+    - name: Install picotool
+      run: sudo make -C picotool/build install
+    
+    - name: Build images for all boards
+      run: MAKEFLAGS="-j 4" ./build_all_boards.sh "${GITHUB_REF##*/}"
+    
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          buildx/images/*.uf2
