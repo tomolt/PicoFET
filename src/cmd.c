@@ -288,6 +288,29 @@ void cmd_fuses_get_config(struct jtdev *p, struct comm *t, union arg_value *args
 	}
 }
 
+void cmd_break_clear_all(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)args;
+
+	p->status = STATUS_OK;
+	jtag_set_breakpoint(p, -1, 0x0);
+
+	send_status(t, p->status);
+}
+
+void cmd_break_set(struct jtdev *p, struct comm *t, union arg_value *args) {
+	unsigned long bp_idx  = args[0].uint;
+	unsigned long address = args[1].uint;
+
+	p->status = STATUS_OK;
+	int ret = jtag_set_breakpoint(p, bp_idx, address);
+
+	if (ret == 1) {
+		send_status(t, p->status);
+	} else {
+		send_status(t, STATUS_TOO_MANY_BREAKS);
+	}
+}
+
 void cmd_version(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	(void)args;
@@ -431,6 +454,18 @@ const struct cmd_def cmd_defs[] = {
 		"FUSES:GET_CONFIG",
 		{ NULL },
 		cmd_fuses_get_config,
+		0
+	},
+	{
+		"BREAK:CLEAR_ALL",
+		{ NULL },
+		cmd_break_clear_all,
+		0
+	},
+	{
+		"BREAK:SET",
+		{ ARG_UINT "bp_idx", ARG_UINT "address", NULL },
+		cmd_break_set,
 		0
 	},
 };

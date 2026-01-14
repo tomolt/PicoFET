@@ -97,4 +97,3 @@ void write_flash(struct jtdev *p, address_t address, address_t length, const uin
 		}
 	}
 }
-

@@ -1115,7 +1115,6 @@ unsigned int jtag_set_breakpoint( struct jtdev *p,int bp_num, address_t bp_addr 
 
 	if (bp_num >= 8) {
 		/* there are no more than 8 breakpoints in EEM */
-		jtag_fail(p, STATUS_TOO_MANY_BREAKS);
 		return 0;
 	}
 
