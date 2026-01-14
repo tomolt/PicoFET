@@ -1,0 +1,7 @@
+#ifndef PICOFET_MAJOR_VERSION
+#  define PICOFET_MAJOR_VERSION 0
+#endif
+
+#ifndef PICOFET_MINOR_VERSION
+#  define PICOFET_MINOR_VERSION 2
+#endif

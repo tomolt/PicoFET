@@ -9,6 +9,7 @@
 #include "comm.h"
 #include "cmd.h"
 #include "ops.h"
+#include "version.h"
 
 #define MAX_COMMAND_LENGTH 256
 #define MAX_ARGS 8
@@ -275,7 +276,7 @@ void cmd_reg_write(struct jtdev *p, struct comm *t, union arg_value *args) {
 	send_status(t, p->status);
 }
 
-void cmd_fuses_read(struct jtdev *p, struct comm *t, union arg_value *args) {
+void cmd_fuses_get_config(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)args;
 
 	p->status = STATUS_OK;
@@ -287,13 +288,29 @@ void cmd_fuses_read(struct jtdev *p, struct comm *t, union arg_value *args) {
 	}
 }
 
-void cmd_info_commands(struct jtdev *p, struct comm *t, union arg_value *args);
+void cmd_version(struct jtdev *p, struct comm *t, union arg_value *args) {
+	(void)p;
+	(void)args;
+
+	address_t version = (PICOFET_MAJOR_VERSION << 16) | (PICOFET_MINOR_VERSION << 8);
+
+	send_status(t, STATUS_OK);
+	send_address(t, version);
+}
+
+void cmd_help(struct jtdev *p, struct comm *t, union arg_value *args);
 
 const struct cmd_def cmd_defs[] = {
 	{
-		"INFO:COMMANDS",
+		"HELP",
 		{ NULL },
-		cmd_info_commands,
+		cmd_help,
+		ATTACH_NOT_NEEDED
+	},
+	{
+		"VERSION",
+		{ NULL },
+		cmd_version,
 		ATTACH_NOT_NEEDED
 	},
 	{
@@ -411,14 +428,14 @@ const struct cmd_def cmd_defs[] = {
 		0
 	},
 	{
-		"FUSES:READ",
+		"FUSES:GET_CONFIG",
 		{ NULL },
-		cmd_fuses_read,
+		cmd_fuses_get_config,
 		0
 	},
 };
 
-void cmd_info_commands(struct jtdev *p, struct comm *t, union arg_value *args) {
+void cmd_help(struct jtdev *p, struct comm *t, union arg_value *args) {
 	(void)p;
 	(void)args;
 	send_status(t, STATUS_OK);
