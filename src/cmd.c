@@ -358,7 +358,7 @@ const struct cmd_def cmd_defs[] = {
 		"MCU:RESET",
 		{ NULL },
 		cmd_mcu_reset,
-		0
+		ATTACH_NOT_NEEDED
 	},
 	{
 		"MCU:CONTINUE",
@@ -370,13 +370,19 @@ const struct cmd_def cmd_defs[] = {
 		"MCU:HALT",
 		{ NULL },
 		cmd_mcu_halt,
-		0
+		ATTACH_NOT_NEEDED
 	},
 	{
 		"MCU:STEP",
 		{ NULL },
 		cmd_mcu_step,
 		0
+	},
+	{
+		"MCU:IS_HALTED",
+		{ NULL },
+		cmd_mcu_is_halted,
+		ATTACH_NOT_NEEDED
 	},
 	{
 		"BUF:CAPACITY",
