@@ -55,7 +55,9 @@ void pico_dev_tclk_strobe(struct jtdev *p, unsigned int count) {
 	while (count) {
 		gpio_put(p->pin_tdi, 0);
 		gpio_put(p->pin_tdi, 1);
-		sleep_us(2);
+		// The FLASH controller needs a clock rate of 350kHz +- 100kHz.
+		// Sleeping 3 microseconds should give us a frequency of around 333kHz.
+		sleep_us(3);
 		count--;
 	}
 }
@@ -178,6 +180,7 @@ size_t comm_tusb_read_nb(__unused struct comm *t, void *buf, size_t max) {
 void comm_tusb_write(__unused struct comm *t, const void *buf, size_t max) {
 	while (max) {
 		watchdog_update();
+		tud_task();
 
 		unsigned avail = tud_cdc_write_available();
 		if (!avail) {
@@ -222,9 +225,11 @@ int main() {
 	struct jtdev jtdev;
 	pico_dev_func.jtdev_open(&jtdev, NULL);
 
+#if 0
 	if (watchdog_caused_reboot()) {
 		send_status(&comm, STATUS_PROGRAMMER_FROZE);
 	}
+#endif
 
 	command_loop(&jtdev, &comm);
 
